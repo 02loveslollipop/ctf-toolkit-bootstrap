@@ -77,6 +77,73 @@ Pinned in [requirements-ctf.txt](/home/zerotwo/ctf-toolkit-bootstrap/requirement
 - `sagemath`
 - `ssh-async`
 
+## Included Skills
+
+### `ctf-tools`
+
+Use this skill for the normal Python-heavy CTF workflow outside SageMath. It is meant for exploit development, pwning, binary analysis, protocol scripting, symbolic solving, and quick one-off helpers that should run inside the repo's `ctf` conda environment instead of the ambient shell environment.
+
+The skill is the main bridge between Codex and the installed toolkit. In practice that means it gives the agent a reliable path for using packages such as `pwntools`, `angr`, `claripy`, `z3-solver`, `capstone`, `unicorn`, `keystone`, `ropper`, `r2pipe`, `scapy`, and `fpylll`, along with native tools like `gdb`, `checksec`, `patchelf`, `qemu-user`, `radare2`, `strace`, `ltrace`, `objdump`, and `nasm`.
+
+Typical use cases:
+
+- build and run exploit or solver scripts in the `ctf` environment
+- inspect ELF protections and patch binaries
+- debug a local or remote pwn target
+- automate reversing or packet-analysis workflows
+
+### `minecraft-async`
+
+Use this skill when a challenge depends on driving a locally installed Minecraft client. It launches the existing `~/.minecraft` Java install directly, favors offline-mode identities that are common in Minecraft CTF infrastructure, and manages the running client asynchronously instead of relying on the official launcher UI.
+
+It also exposes fast X11-backed actions for focusing the game window, sending chat, issuing slash commands, capturing screenshots, and checking Minecraft logs. That makes it useful for tasks where the agent needs both process-level control and visual state inspection, such as joining a server, entering a world, teleporting, validating on-screen state, or diagnosing disconnects and startup failures.
+
+Typical use cases:
+
+- launch directly into a multiplayer server or singleplayer world
+- operate with alternate offline usernames
+- send in-game commands quickly without manual typing
+- inspect `latest.log` and capture screenshots while debugging state
+
+### `netcat-async`
+
+Use this skill when a target speaks a line-oriented or raw TCP protocol and the connection needs to stay open across multiple agent actions. Instead of one-shot `nc` invocations, it keeps a named session alive in the background, lets the agent send input incrementally, and preserves a read log for later inspection.
+
+This is useful for interactive CTF services, menu-driven binaries behind `socat`, custom challenge daemons, or any network flow where reads and writes happen at different times. The session model is intentionally simple: start, send, read, inspect status, and stop.
+
+Typical use cases:
+
+- interact with a remote challenge service over TCP
+- keep a connection open while exploring protocol behavior
+- capture and tail responses without losing session state
+- avoid repeatedly reconnecting while testing payloads
+
+### `sagemath`
+
+Use this skill for math-heavy or algebra-heavy tasks that need real Sage instead of plain Python. It is intended for cryptography and CTF problem classes where finite fields, elliptic curves, modular arithmetic, lattices, polynomial algebra, small-root attacks, or PRNG analysis are easier or only practical in SageMath.
+
+The skill complements `ctf-tools` rather than replacing it. If the work is ordinary Python scripting, exploit logic, or generic reverse engineering, `ctf-tools` is the better default. If the work depends on Sage objects, symbolic number theory, lattice reduction patterns, or reusable `.sage` templates, this skill is the right choice.
+
+Typical use cases:
+
+- solve RSA, ECC, lattice, or hidden-number style challenges
+- work with finite-field arithmetic and curve points
+- prototype number-theory attacks in a `.sage` file
+- use bundled Sage templates for common crypto attack setups
+
+### `ssh-async`
+
+Use this skill when the agent needs a persistent SSH shell rather than a single `ssh host command` call. Like `netcat-async`, it keeps a named session open and lets the agent send commands, inspect output later, and reuse the same authenticated shell context across multiple steps.
+
+It is suited to remote debugging, deployment, log inspection, long-lived administrative sessions, and workflows where the current working directory, shell environment, or prompt state matters. It is deliberately focused on line-oriented shell usage, not full-screen TUI applications.
+
+Typical use cases:
+
+- keep one remote shell open for a whole debugging session
+- inspect logs and rerun commands on the same host without reconnecting
+- work through a remote challenge environment incrementally
+- preserve shell context while iterating on fixes or commands
+
 ## Install
 
 Run:
