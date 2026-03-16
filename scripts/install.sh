@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_NAME="ctf"
 DRY_RUN=0
+CONDA_BIN=""
 
 PWNDBG_VERSION="2026.02.18"
 PWNINIT_VERSION="3.3.1"
@@ -23,9 +24,11 @@ APT_PACKAGES=(
   nasm
   openjdk-21-jre
   patchelf
+  python3-xlib
   qemu-user
   qemu-user-static
   radare2
+  rsync
   ruby
   unzip
 )
@@ -61,6 +64,41 @@ run_shell() {
   fi
 }
 
+find_conda() {
+  local candidate
+
+  if command -v conda >/dev/null 2>&1; then
+    CONDA_BIN="$(command -v conda)"
+    return 0
+  fi
+
+  for candidate in \
+    "$HOME/miniconda3/bin/conda" \
+    "$HOME/anaconda3/bin/conda" \
+    "/opt/miniconda3/bin/conda" \
+    "/opt/anaconda3/bin/conda"
+  do
+    if [[ -x "$candidate" ]]; then
+      CONDA_BIN="$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+print_conda_install_help() {
+  cat >&2 <<'EOF'
+Anaconda or Miniconda is required, but no conda installation was found.
+
+Download links:
+  Miniconda: https://docs.conda.io/en/latest/miniconda.html
+  Anaconda:  https://www.anaconda.com/download
+
+After installation, reopen your shell or add conda to PATH and rerun this script.
+EOF
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --env)
@@ -83,10 +121,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! command -v conda >/dev/null 2>&1; then
-  echo "conda is required on PATH." >&2
+if ! find_conda; then
+  print_conda_install_help
   exit 1
 fi
+
+echo "Using conda at: $CONDA_BIN"
 
 run mkdir -p "$HOME/.local/bin" "$HOME/.local/opt"
 run mkdir -p "$HOME/.codex/skills"
@@ -94,13 +134,13 @@ run mkdir -p "$HOME/.codex/skills"
 run sudo apt-get update
 run sudo apt-get install -y "${APT_PACKAGES[@]}"
 
-if conda env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
+if "$CONDA_BIN" env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
   echo "Conda environment '$ENV_NAME' already exists."
 else
-  run conda create -n "$ENV_NAME" python=3.12 pip -y
+  run "$CONDA_BIN" create -n "$ENV_NAME" python=3.12 pip -y
 fi
 
-run conda run -n "$ENV_NAME" pip install -r "$ROOT_DIR/requirements-ctf.txt"
+run "$CONDA_BIN" run -n "$ENV_NAME" pip install -r "$ROOT_DIR/requirements-ctf.txt"
 
 run_shell "curl -fsSL https://github.com/io12/pwninit/releases/download/${PWNINIT_VERSION}/pwninit -o '$HOME/.local/bin/pwninit' && chmod +x '$HOME/.local/bin/pwninit'"
 

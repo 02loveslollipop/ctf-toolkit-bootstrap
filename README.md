@@ -1,16 +1,21 @@
 # CTF Toolkit Bootstrap
 
-Bootstrap a CTF workstation around an existing Anaconda installation.
+Bootstrap a CTF workstation around an existing Anaconda or Miniconda installation.
 
 This setup creates or updates a `ctf` conda environment, installs the Python solver/exploit stack used in this workspace, and installs the native reversing and pwn tools that were added here.
 It also vendors Codex skill folders and injects them into `~/.codex/skills`.
 
 ## Requirements
 
-- An existing Anaconda or Miniconda installation with `conda` on `PATH`
+- An existing Anaconda or Miniconda installation
 - Ubuntu or another Debian-like system with `apt-get`
 - `sudo` access for system package installation
 - Network access
+
+If Conda is not installed, the installer now stops with official download links:
+
+- Miniconda: <https://docs.conda.io/en/latest/miniconda.html>
+- Anaconda: <https://www.anaconda.com/download>
 
 The installer assumes:
 
@@ -45,9 +50,11 @@ Pinned in [requirements-ctf.txt](/home/zerotwo/ctf-toolkit-bootstrap/requirement
 - `ltrace`
 - `nasm`
 - `patchelf`
+- `python3-xlib`
 - `qemu-user`
 - `qemu-user-static`
 - `radare2`
+- `rsync`
 - `unzip`
 - `ruby`
 - `curl`
@@ -65,7 +72,10 @@ Pinned in [requirements-ctf.txt](/home/zerotwo/ctf-toolkit-bootstrap/requirement
 ### Codex skills injected into `~/.codex/skills`
 
 - `ctf-tools`
+- `minecraft-async`
+- `netcat-async`
 - `sagemath`
+- `ssh-async`
 
 ## Install
 
@@ -144,8 +154,10 @@ bash /home/zerotwo/ctf-toolkit-bootstrap/scripts/uninstall.sh --dry-run
 ## Notes
 
 - The installer does not remove existing environments or tools.
+- The installer checks `conda` on `PATH` first, then common install locations such as `~/miniconda3` and `~/anaconda3`.
 - The uninstall script is conservative by default. It does not remove the conda environment or apt packages unless asked.
-- The vendored skill sync uses `rsync --delete` per managed skill directory, so repo copies become the source of truth for `ctf-tools` and `sagemath` under `~/.codex/skills`.
+- The vendored skill sync uses `rsync --delete` per managed skill directory, so repo copies become the source of truth for `ctf-tools`, `minecraft-async`, `netcat-async`, `sagemath`, and `ssh-async` under `~/.codex/skills`.
+- `minecraft-async` launches the existing `~/.minecraft` Java client directly for offline usernames and uses X11 automation through `python3-xlib` for fast in-game actions.
 - `pwndbg` is installed with the upstream rootless installer.
 - `ghidra` is downloaded from the official NSA GitHub release and unpacked under `~/.local/opt/ghidra`.
 - `seccomp-tools` is installed with `gem --user-install` and symlinked into `~/.local/bin`.

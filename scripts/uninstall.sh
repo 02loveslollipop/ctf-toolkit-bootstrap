@@ -5,6 +5,7 @@ ENV_NAME="ctf"
 REMOVE_ENV=0
 PURGE_APT=0
 DRY_RUN=0
+CONDA_BIN=""
 
 APT_PACKAGES=(
   checksec
@@ -16,9 +17,11 @@ APT_PACKAGES=(
   nasm
   openjdk-21-jre
   patchelf
+  python3-xlib
   qemu-user
   qemu-user-static
   radare2
+  rsync
   ruby
   unzip
 )
@@ -54,6 +57,39 @@ run_shell() {
   else
     bash -lc "$*"
   fi
+}
+
+find_conda() {
+  local candidate
+
+  if command -v conda >/dev/null 2>&1; then
+    CONDA_BIN="$(command -v conda)"
+    return 0
+  fi
+
+  for candidate in \
+    "$HOME/miniconda3/bin/conda" \
+    "$HOME/anaconda3/bin/conda" \
+    "/opt/miniconda3/bin/conda" \
+    "/opt/anaconda3/bin/conda"
+  do
+    if [[ -x "$candidate" ]]; then
+      CONDA_BIN="$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+print_conda_install_help() {
+  cat >&2 <<'EOF'
+Anaconda or Miniconda is required to remove a conda environment, but no conda installation was found.
+
+Download links:
+  Miniconda: https://docs.conda.io/en/latest/miniconda.html
+  Anaconda:  https://www.anaconda.com/download
+EOF
 }
 
 while [[ $# -gt 0 ]]; do
@@ -98,7 +134,11 @@ run_shell "rm -rf '$HOME/.local/opt'/ghidra_*_PUBLIC '$HOME/.local/opt'/ghidra_*
 run bash "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/remove_skills.sh"
 
 if [[ "$REMOVE_ENV" -eq 1 ]]; then
-  run conda env remove -n "$ENV_NAME" -y
+  if ! find_conda; then
+    print_conda_install_help
+    exit 1
+  fi
+  run "$CONDA_BIN" env remove -n "$ENV_NAME" -y
 fi
 
 if [[ "$PURGE_APT" -eq 1 ]]; then

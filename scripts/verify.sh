@@ -3,10 +3,44 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_NAME="ctf"
+CONDA_BIN=""
 
 usage() {
   cat <<EOF
 Usage: $(basename "$0") [--env NAME]
+EOF
+}
+
+find_conda() {
+  local candidate
+
+  if command -v conda >/dev/null 2>&1; then
+    CONDA_BIN="$(command -v conda)"
+    return 0
+  fi
+
+  for candidate in \
+    "$HOME/miniconda3/bin/conda" \
+    "$HOME/anaconda3/bin/conda" \
+    "/opt/miniconda3/bin/conda" \
+    "/opt/anaconda3/bin/conda"
+  do
+    if [[ -x "$candidate" ]]; then
+      CONDA_BIN="$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+print_conda_install_help() {
+  cat >&2 <<'EOF'
+Anaconda or Miniconda is required, but no conda installation was found.
+
+Download links:
+  Miniconda: https://docs.conda.io/en/latest/miniconda.html
+  Anaconda:  https://www.anaconda.com/download
 EOF
 }
 
@@ -28,13 +62,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if ! command -v conda >/dev/null 2>&1; then
-  echo "conda is required on PATH." >&2
+if ! find_conda; then
+  print_conda_install_help
   exit 1
 fi
 
 echo "[python modules in ${ENV_NAME}]"
-conda run -n "$ENV_NAME" python -c '
+"$CONDA_BIN" run -n "$ENV_NAME" python -c '
 import importlib.util as u
 mods = [
     "z3",
@@ -63,3 +97,11 @@ for tool in pwndbg pwninit seccomp-tools ghidra-headless ghidra gdb checksec pat
     echo "$tool: no"
   fi
 done
+
+echo
+echo "[system python modules]"
+if python3 -c 'import Xlib' >/dev/null 2>&1; then
+  echo "python3-xlib: yes"
+else
+  echo "python3-xlib: no"
+fi
