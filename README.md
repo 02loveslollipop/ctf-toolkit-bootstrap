@@ -4,6 +4,8 @@ Open Codex Runtime for Offensive Workflows.
 
 OpenCROW bootstraps a CTF workstation around an existing Anaconda or Miniconda installation, then syncs the repo-managed Codex skills into `~/.codex/skills`. The current implementation is catalog-driven, stateful, backed by a Python Typer CLI, and able to install a broad headless toolbox set plus most full-profile tools directly.
 
+The first MCP migration wave is also in progress. OpenCROW now ships provider-neutral stdio MCP servers for the smaller toolboxes, with the shared contract defined in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
+
 ## Requirements
 
 - An existing Anaconda or Miniconda installation
@@ -56,6 +58,13 @@ The current phase 1 implementation covers:
 - `opencrow-stego-toolbox`: `steghide`, `zsteg`
 - `opencrow-osint-toolbox`: `shodan`, `sherlock`, `waybackpy`
 - `opencrow-utility-toolbox`: `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, `fzf`
+
+Wave 1 MCP servers:
+
+- `opencrow-stego-mcp`
+- `opencrow-forensics-mcp`
+- `opencrow-osint-mcp`
+- `opencrow-web-mcp`
 
 Tracked as manual full-profile steps today:
 
@@ -113,6 +122,17 @@ High-level skill roles:
 - `netcat-async` (`OpenCROW I/O - Netcat Async`): persistent asynchronous TCP sessions
 - `sagemath` (`OpenCROW Runner - SageMath`): Sage-based math and cryptanalysis
 - `ssh-async` (`OpenCROW I/O - SSH Async`): persistent asynchronous SSH sessions
+
+## MCP Architecture
+
+OpenCROW toolbox MCP servers follow one shared contract:
+
+- one stdio MCP server per toolbox
+- provider-neutral typed tools, not Codex-specific shell wrappers
+- common tools on every server: `toolbox_info`, `toolbox_verify`, `toolbox_capabilities`
+- shared response envelope with `ok`, `summary`, `toolbox`, `operation`, `inputs`, `artifacts`, `observations`, `command`, `stdout`, `stderr`, `exit_code`, and `next_steps`
+
+Architecture details and contract rules live in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
 
 ## Install
 

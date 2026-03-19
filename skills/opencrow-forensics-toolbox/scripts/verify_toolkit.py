@@ -19,6 +19,7 @@ PYTHON_MODULES = [
 SYSTEM_TOOLS = [
     "exiftool",
     "foremost",
+    "opencrow-forensics-mcp",
 ]
 
 

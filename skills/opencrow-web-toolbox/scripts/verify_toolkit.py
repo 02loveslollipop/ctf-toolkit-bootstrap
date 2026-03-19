@@ -13,6 +13,7 @@ SYSTEM_TOOLS = [
     "ffuf",
     "dirb",
     "wfuzz",
+    "opencrow-web-mcp",
 ]
 
 

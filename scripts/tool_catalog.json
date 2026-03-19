@@ -601,6 +601,17 @@
       "verify": {"kind": "command", "value": "burpsuite"}
     },
     {
+      "id": "opencrow-web-mcp",
+      "display_name": "opencrow-web-mcp",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral stdio MCP server for OpenCROW web operations.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "install": {"kind": "direct", "handler": "opencrow-web-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-web-mcp"}
+    },
+    {
       "id": "volatility3",
       "display_name": "Volatility 3",
       "toolbox": "opencrow-forensics-toolbox",
@@ -683,6 +694,17 @@
       "verify": {"kind": "command", "value": "autopsy"}
     },
     {
+      "id": "opencrow-forensics-mcp",
+      "display_name": "opencrow-forensics-mcp",
+      "toolbox": "opencrow-forensics-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral stdio MCP server for OpenCROW forensics operations.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "install": {"kind": "direct", "handler": "opencrow-forensics-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-forensics-mcp"}
+    },
+    {
       "id": "steghide",
       "display_name": "steghide",
       "toolbox": "opencrow-stego-toolbox",
@@ -727,6 +749,17 @@
       "verify": {"kind": "command", "value": "openstego"}
     },
     {
+      "id": "opencrow-stego-mcp",
+      "display_name": "opencrow-stego-mcp",
+      "toolbox": "opencrow-stego-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral stdio MCP server for OpenCROW stego operations.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "install": {"kind": "direct", "handler": "opencrow-stego-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-stego-mcp"}
+    },
+    {
       "id": "shodan",
       "display_name": "Shodan CLI",
       "toolbox": "opencrow-osint-toolbox",
@@ -769,6 +802,17 @@
       "license_url": "https://github.com/laramies/theHarvester/blob/master/LICENSE",
       "install": {"kind": "direct", "handler": "theharvester", "apt_dependencies": ["git", "python3-venv"]},
       "verify": {"kind": "command", "value": "theHarvester"}
+    },
+    {
+      "id": "opencrow-osint-mcp",
+      "display_name": "opencrow-osint-mcp",
+      "toolbox": "opencrow-osint-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral stdio MCP server for OpenCROW OSINT operations.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "install": {"kind": "direct", "handler": "opencrow-osint-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-osint-mcp"}
     },
     {
       "id": "jq",

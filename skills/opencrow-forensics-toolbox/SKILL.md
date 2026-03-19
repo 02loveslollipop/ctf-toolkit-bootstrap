@@ -9,6 +9,12 @@ Use this skill for challenge artifacts that look like disk, memory, firmware, or
 
 ## Quick Start
 
+Start the MCP server from the installed CLI:
+
+```bash
+opencrow-forensics-mcp
+```
+
 Verify the mapped stack:
 
 ```bash
@@ -22,8 +28,10 @@ python ~/.codex/skills/opencrow-forensics-toolbox/scripts/verify_toolkit.py
 3. Use `volatility3` when the artifact is a memory dump or live-memory-style capture.
 4. If a full profile was installed, use the manual Autopsy step from the installer summary for GUI-heavy disk forensics.
 5. Read [references/tooling.md](references/tooling.md) for quick selection notes.
+6. Prefer the MCP server operations first: `toolbox_info`, `toolbox_verify`, `toolbox_capabilities`, `forensics_metadata`, `forensics_carve`, and `forensics_memory_inspect`.
 
 ## Resources
 
+- `opencrow-forensics-mcp`: stdio MCP server for typed metadata, carving, and memory workflows.
 - `scripts/verify_toolkit.py`: confirm that the mapped forensics tools are installed.
 - `references/tooling.md`: quick guidance for choosing between memory, metadata, and carving tools.

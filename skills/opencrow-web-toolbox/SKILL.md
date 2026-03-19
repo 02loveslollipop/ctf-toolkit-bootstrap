@@ -9,6 +9,12 @@ Use this skill for web CTF work that starts from discovery and fuzzing rather th
 
 ## Quick Start
 
+Start the MCP server from the installed CLI:
+
+```bash
+opencrow-web-mcp
+```
+
 Verify the mapped stack:
 
 ```bash
@@ -22,6 +28,7 @@ python ~/.codex/skills/opencrow-web-toolbox/scripts/verify_toolkit.py
 3. Use `sqlmap` when the challenge is plausibly SQLi-driven and the target is stable enough for automation.
 4. Use `playwright` separately when the task needs a real browser or a JS-heavy flow.
 5. If a full profile was installed, use the manual Burp/ZAP links from the installer summary for GUI-heavy workflows.
+6. Prefer the MCP server operations first: `toolbox_info`, `toolbox_verify`, `toolbox_capabilities`, `web_discover`, `web_fuzz`, and `web_sqlmap_scan`.
 
 ## Tool Selection
 
@@ -33,5 +40,6 @@ python ~/.codex/skills/opencrow-web-toolbox/scripts/verify_toolkit.py
 
 ## Resources
 
+- `opencrow-web-mcp`: stdio MCP server for typed discovery, fuzzing, and sqlmap workflows.
 - `scripts/verify_toolkit.py`: confirm that the mapped web discovery tools are installed.
 - `references/tooling.md`: quick selection notes for web workflows.
