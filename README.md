@@ -22,17 +22,19 @@ OpenCROW now resolves installs from the machine-readable catalog at `scripts/too
 
 Behavior:
 
-- `install.sh` is the stable public entrypoint, but now bootstraps a small Python installer venv and delegates to a Typer CLI.
-- On a TTY with no selection flags, `install.sh` starts a full-screen Textual installer that handles selection, resize, proprietary prompts, and confirmation inside one TUI flow.
-- Without a TTY, `install.sh` defaults to a headless install across all OpenCROW toolboxes.
+- `install.sh` is the interactive public entrypoint. It bootstraps a small Python installer venv and opens the full-screen Textual installer.
+- `install_headless.sh` is the non-interactive install entrypoint and uses the same flag-driven selection model as the old shell installer.
+- `update_headless.sh` is the non-interactive additive update entrypoint and merges the requested selection into the saved managed state.
 - The installer prints homepage and license links for every selected tool before it starts.
 - Proprietary packages marked in the catalog require an explicit terms acceptance prompt during interactive installs.
 - Install state is saved under `~/.local/share/opencrow/install-state.json`.
 
 Interactive modes:
 
-- `fast install`: choose toolboxes, then choose one global profile: `headless` or `full`
-- `personalized`: choose individual tools directly
+- fresh installs: `fast install` or `personalized`
+- existing managed installs: `update` or `modify`
+- `update`: add new toolboxes to the current managed install
+- `modify`: replace the saved managed selection interactively
 
 Current profiles:
 
@@ -102,10 +104,11 @@ bash ./scripts/install.sh
 Common non-interactive examples:
 
 ```bash
-bash ./scripts/install.sh --dry-run
-bash ./scripts/install.sh --profile headless
-bash ./scripts/install.sh --toolbox opencrow-crypto-toolbox --toolbox opencrow-web-toolbox --profile headless
-bash ./scripts/install.sh --tool one_gadget --tool zsteg
+bash ./scripts/install_headless.sh --dry-run
+bash ./scripts/install_headless.sh --profile headless
+bash ./scripts/install_headless.sh --toolbox opencrow-crypto-toolbox --toolbox opencrow-web-toolbox --profile headless
+bash ./scripts/install_headless.sh --tool one_gadget --tool zsteg
+bash ./scripts/update_headless.sh --toolbox opencrow-web-toolbox --profile headless
 ```
 
 ## Verify
