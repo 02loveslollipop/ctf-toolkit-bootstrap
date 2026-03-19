@@ -5,7 +5,26 @@ description: Manage a preinstalled local Minecraft Java client asynchronously fo
 
 # OpenCROW I/O - Minecraft Async
 
-Use `scripts/mcx` to control the already-installed Minecraft Java client under `~/.minecraft`.
+Prefer the `opencrow-minecraft-mcp` server for status, launch, chat, commands, screenshots, and log reads. Fall back to `scripts/mcx` only when you need to inspect or debug the backend directly.
+
+## MCP First
+
+- Use `toolbox_info`, `toolbox_verify`, and `toolbox_capabilities` first.
+- Use the typed Minecraft operations:
+  - `minecraft_status`
+  - `minecraft_launch`
+  - `minecraft_join_server`
+  - `minecraft_join_world`
+  - `minecraft_focus`
+  - `minecraft_send_text`
+  - `minecraft_chat`
+  - `minecraft_command`
+  - `minecraft_screenshot`
+  - `minecraft_read_log`
+  - `minecraft_stop`
+- Treat the MCP server as the main interface and `scripts/mcx` as the implementation fallback.
+
+Use `scripts/mcx` to control the already-installed Minecraft Java client under `~/.minecraft` when you are operating outside MCP.
 
 ## Workflow
 

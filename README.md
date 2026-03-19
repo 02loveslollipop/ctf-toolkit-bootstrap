@@ -66,6 +66,12 @@ Wave 1 MCP servers:
 - `opencrow-osint-mcp`
 - `opencrow-web-mcp`
 
+I/O MCP servers:
+
+- `opencrow-netcat-mcp`
+- `opencrow-ssh-mcp`
+- `opencrow-minecraft-mcp`
+
 Tracked as manual full-profile steps today:
 
 - `Burp Suite Community`
@@ -123,11 +129,18 @@ High-level skill roles:
 - `sagemath` (`OpenCROW Runner - SageMath`): Sage-based math and cryptanalysis
 - `ssh-async` (`OpenCROW I/O - SSH Async`): persistent asynchronous SSH sessions
 
+Installed I/O MCP commands:
+
+- `opencrow-netcat-mcp`: MCP bridge for the managed TCP session backend
+- `opencrow-ssh-mcp`: MCP bridge for the managed SSH session backend
+- `opencrow-minecraft-mcp`: MCP bridge for managed local Minecraft launch, logs, screenshots, and X11 actions
+
 ## MCP Architecture
 
 OpenCROW toolbox MCP servers follow one shared contract:
 
 - one stdio MCP server per toolbox
+- the same contract also applies to session-oriented I/O helpers
 - provider-neutral typed tools, not Codex-specific shell wrappers
 - common tools on every server: `toolbox_info`, `toolbox_verify`, `toolbox_capabilities`
 - shared response envelope with `ok`, `summary`, `toolbox`, `operation`, `inputs`, `artifacts`, `observations`, `command`, `stdout`, `stderr`, `exit_code`, and `next_steps`

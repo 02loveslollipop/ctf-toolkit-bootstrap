@@ -17,6 +17,9 @@ SYSTEM_TOOLS = [
     "fzf",
     "opencrow-autosetup",
     "opencrow-exploit",
+    "opencrow-netcat-mcp",
+    "opencrow-ssh-mcp",
+    "opencrow-minecraft-mcp",
 ]
 
 

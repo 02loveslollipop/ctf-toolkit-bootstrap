@@ -1385,6 +1385,7 @@ def install_opencrow_python_command(
         source_path = source_dir / support_file
         if not source_path.exists():
             source_path = ROOT_DIR / support_file
+        destination_name = source_path.name
         run_as_target(
             ctx,
             [
@@ -1392,7 +1393,7 @@ def install_opencrow_python_command(
                 "-m",
                 "644",
                 str(source_path),
-                str(install_dir / support_file),
+                str(install_dir / destination_name),
             ],
         )
     run_as_target(
@@ -1668,6 +1669,45 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
             python_script="opencrow_web_mcp.py",
             launcher_script="opencrow-web-mcp",
             support_files=["opencrow_mcp_core.py"],
+        )
+        return
+    if handler == "opencrow-netcat-mcp":
+        install_opencrow_python_command(
+            ctx,
+            install_name="opencrow-netcat-mcp",
+            python_script="opencrow_netcat_mcp.py",
+            launcher_script="opencrow-netcat-mcp",
+            support_files=[
+                "opencrow_mcp_core.py",
+                "opencrow_io_mcp_common.py",
+                "skills/netcat-async/scripts/nc_async_session.py",
+            ],
+        )
+        return
+    if handler == "opencrow-ssh-mcp":
+        install_opencrow_python_command(
+            ctx,
+            install_name="opencrow-ssh-mcp",
+            python_script="opencrow_ssh_mcp.py",
+            launcher_script="opencrow-ssh-mcp",
+            support_files=[
+                "opencrow_mcp_core.py",
+                "opencrow_io_mcp_common.py",
+                "skills/ssh-async/scripts/ssh_async_session.py",
+            ],
+        )
+        return
+    if handler == "opencrow-minecraft-mcp":
+        install_opencrow_python_command(
+            ctx,
+            install_name="opencrow-minecraft-mcp",
+            python_script="opencrow_minecraft_mcp.py",
+            launcher_script="opencrow-minecraft-mcp",
+            support_files=[
+                "opencrow_mcp_core.py",
+                "opencrow_io_mcp_common.py",
+                "skills/minecraft-async/scripts/minecraft_async.py",
+            ],
         )
         return
     raise typer.BadParameter(f"Unknown direct install handler: {handler}")

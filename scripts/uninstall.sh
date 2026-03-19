@@ -214,6 +214,18 @@ uninstall_direct_handler() {
       run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-web-mcp"
       run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-web-mcp"
       ;;
+    opencrow-netcat-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-netcat-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-netcat-mcp"
+      ;;
+    opencrow-ssh-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-ssh-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-ssh-mcp"
+      ;;
+    opencrow-minecraft-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-minecraft-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-minecraft-mcp"
+      ;;
     *)
       echo "Unknown direct uninstall handler: $handler" >&2
       exit 2

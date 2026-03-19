@@ -47,12 +47,19 @@ smoke:
 	bash -n scripts/opencrow-forensics-mcp
 	bash -n scripts/opencrow-osint-mcp
 	bash -n scripts/opencrow-web-mcp
+	bash -n scripts/opencrow-netcat-mcp
+	bash -n scripts/opencrow-ssh-mcp
+	bash -n scripts/opencrow-minecraft-mcp
 	python3 -m py_compile scripts/tool_catalog.py
 	python3 -m py_compile scripts/install_cli.py
 	python3 -m py_compile scripts/check_mcp_server.py
 	python3 -m py_compile scripts/opencrow_mcp_core.py
+	python3 -m py_compile scripts/opencrow_io_mcp_common.py
 	python3 -m py_compile scripts/opencrow_stego_mcp.py
 	python3 -m py_compile scripts/opencrow_forensics_mcp.py
 	python3 -m py_compile scripts/opencrow_osint_mcp.py
 	python3 -m py_compile scripts/opencrow_web_mcp.py
+	python3 -m py_compile scripts/opencrow_netcat_mcp.py
+	python3 -m py_compile scripts/opencrow_ssh_mcp.py
+	python3 -m py_compile scripts/opencrow_minecraft_mcp.py
 	bash scripts/install_headless.sh --env "$(ENV)" --dry-run

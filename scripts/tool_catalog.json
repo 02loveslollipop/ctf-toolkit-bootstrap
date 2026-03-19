@@ -912,6 +912,39 @@
       "license_url": "https://github.com/02loveslollipop/OpenCROW",
       "install": {"kind": "direct", "handler": "opencrow-exploit"},
       "verify": {"kind": "command", "value": "opencrow-exploit"}
+    },
+    {
+      "id": "opencrow-netcat-mcp",
+      "display_name": "opencrow-netcat-mcp",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral MCP server for named asynchronous TCP sessions.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://github.com/02loveslollipop/OpenCROW",
+      "install": {"kind": "direct", "handler": "opencrow-netcat-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-netcat-mcp"}
+    },
+    {
+      "id": "opencrow-ssh-mcp",
+      "display_name": "opencrow-ssh-mcp",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral MCP server for named asynchronous SSH sessions.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://github.com/02loveslollipop/OpenCROW",
+      "install": {"kind": "direct", "handler": "opencrow-ssh-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-ssh-mcp"}
+    },
+    {
+      "id": "opencrow-minecraft-mcp",
+      "display_name": "opencrow-minecraft-mcp",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral MCP server for managed local Minecraft client workflows.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://github.com/02loveslollipop/OpenCROW",
+      "install": {"kind": "direct", "handler": "opencrow-minecraft-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-minecraft-mcp"}
     }
   ]
 }

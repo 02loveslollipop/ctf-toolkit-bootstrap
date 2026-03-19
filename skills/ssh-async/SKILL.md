@@ -5,7 +5,20 @@ description: Maintain persistent asynchronous SSH sessions with bidirectional in
 
 # OpenCROW I/O - SSH Async
 
-Use `scripts/sshx` to manage long-lived SSH sessions instead of one-shot `ssh` invocations.
+Prefer the `opencrow-ssh-mcp` server for session lifecycle, reads, and writes. Fall back to `scripts/sshx` only when you need to inspect or debug the backend directly.
+
+## MCP First
+
+- Use `toolbox_info`, `toolbox_verify`, and `toolbox_capabilities` first.
+- Use the generic session tools:
+  - `session_start`
+  - `session_send`
+  - `session_read`
+  - `session_status`
+  - `session_stop`
+- Keep one named session per host/task flow so the MCP server can return stable artifacts under `/tmp/codex-ssh-async/<name>/`.
+
+Use `scripts/sshx` to manage long-lived SSH sessions instead of one-shot `ssh` invocations when you are operating outside MCP.
 
 ## Workflow
 

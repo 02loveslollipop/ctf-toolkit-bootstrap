@@ -5,7 +5,20 @@ description: Maintain bidirectional netcat-style TCP communications with persist
 
 # OpenCROW I/O - Netcat Async
 
-Use `scripts/ncx` to manage long-lived TCP sessions instead of one-shot `nc` invocations.
+Prefer the `opencrow-netcat-mcp` server for session lifecycle, reads, and writes. Fall back to `scripts/ncx` only when you need to inspect or debug the backend directly.
+
+## MCP First
+
+- Use `toolbox_info`, `toolbox_verify`, and `toolbox_capabilities` first.
+- Use the generic session tools:
+  - `session_start`
+  - `session_send`
+  - `session_read`
+  - `session_status`
+  - `session_stop`
+- Keep one named session per target flow so the MCP server can report stable artifacts under `/tmp/codex-nc-async/<name>/`.
+
+Use `scripts/ncx` to manage long-lived TCP sessions instead of one-shot `nc` invocations when you are operating outside MCP.
 
 ## Workflow
 
