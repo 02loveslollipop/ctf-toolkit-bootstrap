@@ -37,4 +37,5 @@ smoke:
 	bash -n scripts/sync_skills.sh
 	bash -n scripts/remove_skills.sh
 	python3 -m py_compile scripts/tool_catalog.py
+	python3 -m py_compile scripts/install_cli.py
 	bash scripts/install.sh --env "$(ENV)" --dry-run

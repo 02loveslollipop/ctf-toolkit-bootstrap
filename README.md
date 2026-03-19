@@ -2,7 +2,7 @@
 
 Open Codex Runtime for Offensive Workflows.
 
-OpenCROW bootstraps a CTF workstation around an existing Anaconda or Miniconda installation, then syncs the repo-managed Codex skills into `~/.codex/skills`. The current implementation is phase 1 of the larger plan: the installer is now catalog-driven, interactive on a TTY, stateful, and able to install a broad headless toolbox set plus track manual full-profile tools.
+OpenCROW bootstraps a CTF workstation around an existing Anaconda or Miniconda installation, then syncs the repo-managed Codex skills into `~/.codex/skills`. The current implementation is phase 1 of the larger plan: the installer is now catalog-driven, stateful, backed by a Python Typer CLI, and able to install a broad headless toolbox set plus track manual full-profile tools.
 
 ## Requirements
 
@@ -22,9 +22,11 @@ OpenCROW now resolves installs from the machine-readable catalog at `scripts/too
 
 Behavior:
 
-- On a TTY with no selection flags, `install.sh` starts an interactive installer.
+- `install.sh` is the stable public entrypoint, but now bootstraps a small Python installer venv and delegates to a Typer CLI.
+- On a TTY with no selection flags, `install.sh` starts a full-screen Textual installer that handles selection, resize, proprietary prompts, and confirmation inside one TUI flow.
 - Without a TTY, `install.sh` defaults to a headless install across all OpenCROW toolboxes.
 - The installer prints homepage and license links for every selected tool before it starts.
+- Proprietary packages marked in the catalog require an explicit terms acceptance prompt during interactive installs.
 - Install state is saved under `~/.local/share/opencrow/install-state.json`.
 
 Interactive modes:

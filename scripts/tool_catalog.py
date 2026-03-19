@@ -75,15 +75,15 @@ def resolve_selection(
 ) -> dict[str, Any]:
     explicit_tools = normalize_tools(catalog, tool_ids)
     if explicit_tools:
-      selected_tools = explicit_tools
+        selected_tools = explicit_tools
     else:
-      selected_toolboxes = normalize_toolboxes(catalog, toolbox_ids)
-      wanted_profile = profile or "headless"
-      selected_tools = sorted(
-          tool_id
-          for tool_id, tool in catalog.tools.items()
-          if tool["toolbox"] in selected_toolboxes and wanted_profile in tool["profiles"]
-      )
+        selected_toolboxes = normalize_toolboxes(catalog, toolbox_ids)
+        wanted_profile = profile or "headless"
+        selected_tools = sorted(
+            tool_id
+            for tool_id, tool in catalog.tools.items()
+            if tool["toolbox"] in selected_toolboxes and wanted_profile in tool["profiles"]
+        )
     if not selected_tools:
         raise SystemExit("Selection resolved to zero tools.")
     return {
@@ -209,7 +209,7 @@ def emit_summary(catalog: Catalog, selection: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def export_plan(catalog: Catalog, selection: dict[str, Any]) -> str:
+def build_plan(catalog: Catalog, selection: dict[str, Any]) -> dict[str, list[str]]:
     apt_packages = set(catalog.raw["base_apt_packages"])
     pip_packages: list[str] = []
     gem_specs: list[str] = []
@@ -232,15 +232,29 @@ def export_plan(catalog: Catalog, selection: dict[str, Any]) -> str:
         elif kind == "manual":
             manual_tools.append(tool_id)
 
+    return {
+        "selected_tool_ids": selection["tool_ids"],
+        "selected_toolboxes": selection["toolboxes"],
+        "apt_packages": sorted(apt_packages),
+        "pip_packages": sorted(dict.fromkeys(pip_packages)),
+        "gem_specs": sorted(dict.fromkeys(gem_specs)),
+        "direct_handlers": sorted(dict.fromkeys(direct_handlers)),
+        "manual_tool_ids": sorted(dict.fromkeys(manual_tools)),
+    }
+
+
+def export_plan(catalog: Catalog, selection: dict[str, Any]) -> str:
+    plan = build_plan(catalog, selection)
+
     lines = [
         f"STATE_PATH={shlex.quote(str(state_path(catalog)))}",
-        f"SELECTED_TOOL_IDS={quoted_array(selection['tool_ids'])}",
-        f"SELECTED_TOOLBOXES={quoted_array(selection['toolboxes'])}",
-        f"APT_PACKAGES={quoted_array(sorted(apt_packages))}",
-        f"PIP_PACKAGES={quoted_array(sorted(dict.fromkeys(pip_packages)))}",
-        f"GEM_SPECS={quoted_array(sorted(dict.fromkeys(gem_specs)))}",
-        f"DIRECT_HANDLERS={quoted_array(sorted(dict.fromkeys(direct_handlers)))}",
-        f"MANUAL_TOOL_IDS={quoted_array(sorted(dict.fromkeys(manual_tools)))}",
+        f"SELECTED_TOOL_IDS={quoted_array(plan['selected_tool_ids'])}",
+        f"SELECTED_TOOLBOXES={quoted_array(plan['selected_toolboxes'])}",
+        f"APT_PACKAGES={quoted_array(plan['apt_packages'])}",
+        f"PIP_PACKAGES={quoted_array(plan['pip_packages'])}",
+        f"GEM_SPECS={quoted_array(plan['gem_specs'])}",
+        f"DIRECT_HANDLERS={quoted_array(plan['direct_handlers'])}",
+        f"MANUAL_TOOL_IDS={quoted_array(plan['manual_tool_ids'])}",
     ]
     return "\n".join(lines)
 

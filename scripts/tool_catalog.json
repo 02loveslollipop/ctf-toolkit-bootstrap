@@ -593,6 +593,7 @@
       "display_name": "Burp Suite Community",
       "toolbox": "opencrow-web-toolbox",
       "profiles": ["full"],
+      "requires_terms_acceptance": true,
       "summary": "Manual web testing proxy. Manual phase 1 step.",
       "homepage_url": "https://portswigger.net/burp/communitydownload",
       "license_url": "https://portswigger.net/burp/documentation/desktop/getting-started/license",
