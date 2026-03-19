@@ -28,6 +28,8 @@ Behavior:
 - The installer prints homepage and license links for every selected tool before it starts.
 - Proprietary packages marked in the catalog require an explicit terms acceptance prompt during interactive installs.
 - Install state is saved under `~/.local/share/opencrow/install-state.json`.
+- By default, re-running the installer merges the new selection into the saved managed set and installs only the missing delta.
+- Use `--replace-selection` when you want the installer to save exactly the current selection instead of performing an additive update.
 
 Interactive modes:
 
@@ -125,6 +127,7 @@ bash ./scripts/install.sh --dry-run
 bash ./scripts/install.sh --profile headless
 bash ./scripts/install.sh --toolbox opencrow-crypto-toolbox --toolbox opencrow-web-toolbox --profile headless
 bash ./scripts/install.sh --tool one_gadget --tool zsteg
+bash ./scripts/install.sh --toolbox opencrow-network-toolbox --replace-selection --profile headless
 ```
 
 ## Verify

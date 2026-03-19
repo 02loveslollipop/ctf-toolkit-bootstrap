@@ -1143,8 +1143,9 @@ def state_to_interactive(selection: dict[str, object]) -> InteractiveState:
 def merge_selections(
     existing: dict[str, object] | None,
     requested: dict[str, object],
+    replace_selection: bool,
 ) -> dict[str, object]:
-    if existing is None:
+    if replace_selection or existing is None:
         return requested
     tool_ids = sorted({*existing["tool_ids"], *requested["tool_ids"]})  # type: ignore[index]
     toolboxes = sorted({*existing["toolboxes"], *requested["toolboxes"]})  # type: ignore[index]
@@ -1602,6 +1603,10 @@ def install(
     profile: Annotated[str | None, typer.Option("--profile", help="Install profile: headless or full.")] = None,
     all_toolboxes: Annotated[bool, typer.Option("--all-toolboxes", help="Select all OpenCROW toolboxes explicitly.")] = False,
     interactive: Annotated[bool, typer.Option("--interactive", help="Force the interactive installer flow.")] = False,
+    replace_selection: Annotated[
+        bool,
+        typer.Option("--replace-selection", help="Replace the saved managed selection instead of merging into it."),
+    ] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Print commands without executing them.")] = False,
 ) -> None:
     profile = ensure_profile(profile)
@@ -1628,11 +1633,17 @@ def install(
     existing_selection = load_existing_selection(catalog)
     selected_toolboxes = [] if all_toolboxes else toolbox
     interactive_mode = should_prompt_interactively(selected_toolboxes, tool, profile, interactive)
-    initial_state = state_to_interactive(existing_selection) if interactive_mode and existing_selection else None
+    initial_state = (
+        state_to_interactive(existing_selection)
+        if interactive_mode and existing_selection and not replace_selection
+        else None
+    )
     requested_selection = resolve_selection(catalog, selected_toolboxes, tool, profile, interactive_mode, initial_state)
-    selection = merge_selections(existing_selection, requested_selection)
+    selection = merge_selections(existing_selection, requested_selection, replace_selection)
 
-    if existing_selection:
+    if existing_selection and replace_selection:
+        console.print("Existing OpenCROW install state detected; replacing the saved managed selection.", style="cyan")
+    elif existing_selection:
         console.print("Existing OpenCROW install state detected; applying an incremental update.", style="cyan")
 
     if not interactive_mode:
