@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCROW - Forensics Toolbox"
+  short_description: "Forensics tools for memory and disk workflows"
+  default_prompt: "Use $opencrow-forensics-toolbox for memory, metadata, and carving workflows with the installed OpenCROW forensics stack."

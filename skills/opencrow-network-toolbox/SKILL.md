@@ -1,11 +1,11 @@
 ---
 name: opencrow-network-toolbox
-description: Use the Anaconda `ctf` environment for packet- and protocol-level CTF tasks that need Python networking helpers. Use when Codex needs `scapy` for packet crafting, protocol decoding, PCAP inspection, or custom network challenge automation.
+description: Use the Anaconda `ctf` environment and installed network tooling for packet- and protocol-level CTF tasks. Use when Codex needs `scapy`, `tshark`, `tcpdump`, `nmap`, `nc`, or `socat` for packet work, capture analysis, or service triage.
 ---
 
 # OpenCROW Network Toolbox
 
-Use this skill for network artifact work that fits Python better than a raw socket loop: packet crafting, PCAP parsing, ad hoc dissectors, and protocol emulation with `scapy`.
+Use this skill for network artifact work that spans both Python packet tooling and native capture or triage tools: `scapy`, `tshark`, `tcpdump`, `nmap`, `nc`, and `socat`.
 
 ## Quick Start
 
@@ -30,13 +30,19 @@ python ~/.codex/skills/opencrow-network-toolbox/scripts/verify_toolkit.py
 ## Workflow
 
 1. Use this toolbox when the target is packet or protocol logic, not a long-lived interactive TCP shell.
-2. Use `scapy` to decode captures, generate packets, or prototype custom protocol interactions.
-3. Use `netcat-async` or `ssh-async` separately when you need persistent line-oriented sessions rather than packet tooling.
-4. Read [references/tooling.md](references/tooling.md) for quick guidance.
+2. Use `tshark` or `tcpdump` first when you need quick visibility into a PCAP or live traffic.
+3. Use `scapy` to decode captures, generate packets, or prototype custom protocol interactions.
+4. Use `nmap`, `nc`, or `socat` for service discovery or socket-level experiments.
+5. Use `netcat-async` or `ssh-async` separately when you need persistent line-oriented sessions rather than packet tooling.
+6. Read [references/tooling.md](references/tooling.md) for quick guidance.
 
 ## Tool Selection
 
 - Use `scapy` for packet crafting, sniffing, protocol parsing, PCAP analysis, and challenge-specific dissectors.
+- Use `tshark` for quick PCAP summaries, display filters, and protocol-aware decoding.
+- Use `tcpdump` for capture creation and fast packet inspection from the shell.
+- Use `nmap` for host, port, and service discovery before deeper protocol analysis.
+- Use `nc` or `socat` for quick socket experiments, port relays, or test servers.
 - Use plain Python socket code only when the task is simpler than full packet work.
 - Use `netcat-async` when the service is an interactive TCP stream and session persistence matters more than packet structure.
 

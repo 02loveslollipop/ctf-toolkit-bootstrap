@@ -1,4 +1,4 @@
 interface:
-  display_name: "SSH Async I/O"
-  short_description: "Async SSH session control with persistent I/O."
+  display_name: "OpenCROW I/O - SSH Async"
+  short_description: "OpenCROW async SSH session control with persistent I/O."
   default_prompt: "Use $ssh-async to manage a persistent SSH session with async send/read/stop workflows."

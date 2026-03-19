@@ -21,6 +21,7 @@ PYTHON_MODULES = [
     "ropper",
     "r2pipe",
     "lief",
+    "qiling",
 ]
 
 SYSTEM_TOOLS = [
@@ -30,6 +31,11 @@ SYSTEM_TOOLS = [
     "strace",
     "ltrace",
     "binwalk",
+]
+
+CONDA_TOOLS = [
+    "frida-ps",
+    "ROPgadget",
 ]
 
 
@@ -70,13 +76,34 @@ def check_system_tools() -> dict[str, bool]:
     return {tool: shutil.which(tool) is not None for tool in SYSTEM_TOOLS}
 
 
+def check_conda_tools(env_name: str) -> dict[str, bool]:
+    code = (
+        "import json, shutil\n"
+        f"tools = {CONDA_TOOLS!r}\n"
+        "print(json.dumps({tool: bool(shutil.which(tool)) for tool in tools}))\n"
+    )
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as handle:
+        handle.write(code)
+        temp_path = Path(handle.name)
+    try:
+        result = subprocess.run(
+            ["conda", "run", "-n", env_name, "python", str(temp_path)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        temp_path.unlink(missing_ok=True)
+    return json.loads(result.stdout.strip())
+
+
 def main() -> int:
     args = build_parser().parse_args()
 
     try:
         payload = {
             "python_modules": check_python_modules(args.env),
-            "system_tools": check_system_tools(),
+            "system_tools": check_system_tools() | check_conda_tools(args.env),
         }
     except subprocess.CalledProcessError as exc:
         print(exc.stderr or str(exc), file=sys.stderr)

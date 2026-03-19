@@ -14,6 +14,12 @@ from pathlib import Path
 PYTHON_MODULES = [
     "z3",
     "fpylll",
+    "Crypto",
+]
+
+SYSTEM_TOOLS = [
+    "hashcat",
+    "john",
 ]
 
 
@@ -50,12 +56,19 @@ def check_python_modules(env_name: str) -> dict[str, bool]:
     return json.loads(result.stdout.strip())
 
 
+def check_system_tools() -> dict[str, bool]:
+    import shutil
+
+    return {tool: shutil.which(tool) is not None for tool in SYSTEM_TOOLS}
+
+
 def main() -> int:
     args = build_parser().parse_args()
 
     try:
         payload = {
             "python_modules": check_python_modules(args.env),
+            "system_tools": check_system_tools(),
         }
     except subprocess.CalledProcessError as exc:
         print(exc.stderr or str(exc), file=sys.stderr)

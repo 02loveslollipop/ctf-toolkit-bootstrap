@@ -22,6 +22,7 @@ SYSTEM_TOOLS = [
     "gdbserver",
     "pwninit",
     "seccomp-tools",
+    "one_gadget",
     "checksec",
     "patchelf",
     "qemu-aarch64",

@@ -3,7 +3,7 @@ name: minecraft-async
 description: Manage a preinstalled local Minecraft Java client asynchronously for CTF and automation workflows. Use when Codex needs to launch Minecraft in offline mode with alternate usernames, inspect Minecraft logs, focus or type into the X11 game window, send chat or slash commands quickly, or join a multiplayer server by launching the installed client directly instead of relying on the official launcher.
 ---
 
-# Minecraft Async
+# OpenCROW I/O - Minecraft Async
 
 Use `scripts/mcx` to control the already-installed Minecraft Java client under `~/.minecraft`.
 
@@ -54,7 +54,7 @@ scripts/mcx stop
 ## Backends
 
 - Prefer the default `direct` backend. It launches the installed client from `~/.minecraft/versions`, `libraries`, and `assets` without the official launcher and supports offline usernames.
-- Use `--backend cmd-launcher` only when `cmd-launcher` is already installed and you deliberately want its instance model. Read [references/backends.md](/home/zerotwo/ctf-toolkit-bootstrap/skills/minecraft-async/references/backends.md) first.
+- Use `--backend cmd-launcher` only when `cmd-launcher` is already installed and you deliberately want its instance model. Read [references/backends.md](references/backends.md) first.
 - Treat `join-server` and `join-world` as launch-time operations. They use direct quick-play arguments and are more reliable before the client is already in-game.
 
 ## Example Workflows
@@ -125,4 +125,4 @@ Use the screenshot for visual diagnosis and the logs for protocol or world-load 
 
 ## References
 
-- Read [references/backends.md](/home/zerotwo/ctf-toolkit-bootstrap/skills/minecraft-async/references/backends.md) for install layout, backend selection, log locations, and X11 caveats.
+- Read [references/backends.md](references/backends.md) for install layout, backend selection, log locations, and X11 caveats.

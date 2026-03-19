@@ -5,7 +5,7 @@ description: Use the Anaconda `ctf` environment and installed reverse-engineerin
 
 # OpenCROW Reversing Toolbox
 
-Use this skill for understanding binaries rather than exploiting them: disassembly, decompilation support, tracing, symbolic execution, gadget or instruction analysis, and binary rewriting in the `ctf` environment.
+Use this skill for understanding binaries rather than exploiting them: disassembly, decompilation support, tracing, symbolic execution, emulation, dynamic instrumentation, gadget analysis, and binary rewriting in the `ctf` environment.
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ python ~/.codex/skills/opencrow-reversing-toolbox/scripts/verify_toolkit.py
 
 1. Start here when the task is "understand behavior" or "recover logic."
 2. Triage with `file`, `strings`, `objdump`, or `r2` before heavier analysis.
-3. Use Python tooling such as `angr`, `claripy`, `capstone`, `keystone`, `unicorn`, `ropper`, `r2pipe`, and `lief` for scripted workflows.
+3. Use Python tooling such as `angr`, `claripy`, `capstone`, `keystone`, `unicorn`, `ropper`, `ROPGadget`, `r2pipe`, `lief`, and `qiling` for scripted workflows.
 4. Use `ghidra-headless`, `strace`, `ltrace`, or `binwalk` when the artifact needs decompilation, tracing, or extraction.
 5. Read [references/tooling.md](references/tooling.md) when selecting among the installed reverse-engineering tools.
 
@@ -41,8 +41,11 @@ python ~/.codex/skills/opencrow-reversing-toolbox/scripts/verify_toolkit.py
 - Use `claripy` when you need symbolic expressions without a full `angr` workflow.
 - Use `capstone`, `keystone`, and `unicorn` for disassembly, assembly, and emulation inside custom scripts.
 - Use `ropper` to search gadgets during binary inspection.
+- Use `ROPGadget` when you want a second gadget finder or architecture-specific output formats.
 - Use `r2pipe` and `radare2` for scriptable or interactive binary analysis.
 - Use `lief` for parsing and patching executable formats.
+- Use `qiling` when you need a higher-level emulation environment around a foreign binary or firmware target.
+- Use `frida-tools` when you need runtime API tracing or live instrumentation instead of static reversing.
 - Use `ghidra-headless` for repeatable import, analysis, and decompilation tasks without the GUI.
 - Use `objdump`, `strace`, `ltrace`, and `binwalk` for fast static, runtime, or firmware-oriented inspection.
 

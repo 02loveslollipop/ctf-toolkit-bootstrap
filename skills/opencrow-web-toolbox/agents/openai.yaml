@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenCROW - Web Toolbox"
-  short_description: "Web tools placeholder for OpenCROW"
-  default_prompt: "Use $opencrow-web-toolbox for web CTF workflows when this toolbox is populated with real tools."
+  short_description: "Web discovery and fuzzing tools for CTFs"
+  default_prompt: "Use $opencrow-web-toolbox for endpoint discovery, fuzzing, and SQLi workflows with the installed OpenCROW web stack."

@@ -15,6 +15,14 @@ PYTHON_MODULES = [
     "scapy",
 ]
 
+SYSTEM_TOOLS = [
+    "tshark",
+    "tcpdump",
+    "nmap",
+    "nc",
+    "socat",
+]
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -49,12 +57,19 @@ def check_python_modules(env_name: str) -> dict[str, bool]:
     return json.loads(result.stdout.strip())
 
 
+def check_system_tools() -> dict[str, bool]:
+    import shutil
+
+    return {tool: shutil.which(tool) is not None for tool in SYSTEM_TOOLS}
+
+
 def main() -> int:
     args = build_parser().parse_args()
 
     try:
         payload = {
             "python_modules": check_python_modules(args.env),
+            "system_tools": check_system_tools(),
         }
     except subprocess.CalledProcessError as exc:
         print(exc.stderr or str(exc), file=sys.stderr)

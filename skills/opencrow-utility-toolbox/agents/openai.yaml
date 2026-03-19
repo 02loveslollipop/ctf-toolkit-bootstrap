@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCROW - Utility Toolbox"
+  short_description: "Workflow helpers for shell-heavy CTF work"
+  default_prompt: "Use $opencrow-utility-toolbox for shell, JSON/YAML, and workflow helper tools in OpenCROW."

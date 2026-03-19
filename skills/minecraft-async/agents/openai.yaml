@@ -1,4 +1,4 @@
 interface:
-  display_name: "Minecraft Async"
-  short_description: "Control a local Minecraft session"
+  display_name: "OpenCROW I/O - Minecraft Async"
+  short_description: "Control a local Minecraft session through OpenCROW"
   default_prompt: "Use $minecraft-async to inspect logs, control the window, and drive the installed Minecraft client."

@@ -3,7 +3,7 @@ name: netcat-async
 description: Maintain bidirectional netcat-style TCP communications with persistent asynchronous input/output. Use when Codex must keep a connection open across multiple commands, send messages while receiving background output, inspect connection logs, or safely start/stop reusable sessions for protocol testing, CTF services, debugging sockets, or interactive line-based services.
 ---
 
-# Netcat Async
+# OpenCROW I/O - Netcat Async
 
 Use `scripts/ncx` to manage long-lived TCP sessions instead of one-shot `nc` invocations.
 

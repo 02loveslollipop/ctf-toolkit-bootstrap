@@ -3,7 +3,7 @@ name: sagemath
 description: Run SageMath computations through the existing Anaconda environment named `sage`. Use when Codex needs Sage for CTF and cryptography work such as asymmetric cryptography, finite fields, elliptic curves, lattices, polynomial algebra, modular arithmetic, discrete logs, small-root attacks, or PRNG cryptanalysis, and when execution should happen from inline code or a `.sage` file instead of plain Python.
 ---
 
-# SageMath
+# OpenCROW Runner - SageMath
 
 Use this skill to execute SageMath reliably from the local conda environment `sage`.
 
@@ -12,13 +12,13 @@ Use this skill to execute SageMath reliably from the local conda environment `sa
 Use the bundled runner:
 
 ```bash
-python /home/zerotwo/.codex/skills/sagemath/scripts/run_sage.py --code 'print(factor(2^20 - 1))'
+python ~/.codex/skills/sagemath/scripts/run_sage.py --code 'print(factor(2^20 - 1))'
 ```
 
 Or execute an existing `.sage` file:
 
 ```bash
-python /home/zerotwo/.codex/skills/sagemath/scripts/run_sage.py --file /absolute/path/to/script.sage
+python ~/.codex/skills/sagemath/scripts/run_sage.py --file /absolute/path/to/script.sage
 ```
 
 ## Workflow
@@ -41,7 +41,7 @@ python /home/zerotwo/.codex/skills/sagemath/scripts/run_sage.py --file /absolute
 For inline calculations:
 
 ```bash
-python /home/zerotwo/.codex/skills/sagemath/scripts/run_sage.py --code '
+python ~/.codex/skills/sagemath/scripts/run_sage.py --code '
 R.<x> = QQ[]
 f = x^4 - 1
 print(f.factor())
@@ -64,24 +64,24 @@ For CTF cryptography workflows:
 
 ## References
 
-- For CTF-oriented patterns and starter snippets, read [references/ctf-crypto.md](/home/zerotwo/.codex/skills/sagemath/references/ctf-crypto.md) when the task involves RSA, ECC, lattices, or PRNG cryptanalysis.
+- For CTF-oriented patterns and starter snippets, read [references/ctf-crypto.md](references/ctf-crypto.md) when the task involves RSA, ECC, lattices, or PRNG cryptanalysis.
 
 ## Templates
 
-- Copy or adapt [rsa-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/rsa-starter.sage) for modular arithmetic, CRT, and private-exponent recovery tasks.
-- Copy or adapt [ecc-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/ecc-starter.sage) for finite-field and elliptic-curve exploration.
-- Copy or adapt [lattice-lll-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/lattice-lll-starter.sage) for integer-lattice and hidden-structure attacks.
-- Copy or adapt [lcg-state-recovery.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/lcg-state-recovery.sage) for linear congruential generator recovery.
-- Copy or adapt [xorshift-linear-model.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/xorshift-linear-model.sage) for GF(2)-linear xorshift modeling.
-- Copy or adapt [mersenne-twister-state-tools.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/mersenne-twister-state-tools.sage) for MT19937 tempering and state-word recovery work.
-- Copy or adapt [mt19937-partial-state-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/mt19937-partial-state-starter.sage) for partial-state or masked-bit MT analysis.
-- Copy or adapt [mt19937-full-state-recovery.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/mt19937-full-state-recovery.sage) for full 624-word MT state reconstruction from outputs.
-- Copy or adapt [rsa-small-root-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/rsa-small-root-starter.sage) for Coppersmith-style experimentation with `small_roots()`.
-- Copy or adapt [rsa-boneh-durfee-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/rsa-boneh-durfee-starter.sage) for low-private-exponent setup and polynomial construction.
-- Copy or adapt [hidden-number-lattice-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/hidden-number-lattice-starter.sage) for nonce-bias and hidden-number lattice setups.
-- Copy or adapt [ecdsa-nonce-reuse-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/ecdsa-nonce-reuse-starter.sage) for same-nonce ECDSA private-key recovery.
-- Copy or adapt [ecdsa-partial-nonce-lattice-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/ecdsa-partial-nonce-lattice-starter.sage) for biased or partially leaked nonce lattice attacks.
-- Copy or adapt [lcg-truncated-output-starter.sage](/home/zerotwo/.codex/skills/sagemath/assets/templates/lcg-truncated-output-starter.sage) for recovering LCG state from high-bit leaks.
+- Copy or adapt [rsa-starter.sage](assets/templates/rsa-starter.sage) for modular arithmetic, CRT, and private-exponent recovery tasks.
+- Copy or adapt [ecc-starter.sage](assets/templates/ecc-starter.sage) for finite-field and elliptic-curve exploration.
+- Copy or adapt [lattice-lll-starter.sage](assets/templates/lattice-lll-starter.sage) for integer-lattice and hidden-structure attacks.
+- Copy or adapt [lcg-state-recovery.sage](assets/templates/lcg-state-recovery.sage) for linear congruential generator recovery.
+- Copy or adapt [xorshift-linear-model.sage](assets/templates/xorshift-linear-model.sage) for GF(2)-linear xorshift modeling.
+- Copy or adapt [mersenne-twister-state-tools.sage](assets/templates/mersenne-twister-state-tools.sage) for MT19937 tempering and state-word recovery work.
+- Copy or adapt [mt19937-partial-state-starter.sage](assets/templates/mt19937-partial-state-starter.sage) for partial-state or masked-bit MT analysis.
+- Copy or adapt [mt19937-full-state-recovery.sage](assets/templates/mt19937-full-state-recovery.sage) for full 624-word MT state reconstruction from outputs.
+- Copy or adapt [rsa-small-root-starter.sage](assets/templates/rsa-small-root-starter.sage) for Coppersmith-style experimentation with `small_roots()`.
+- Copy or adapt [rsa-boneh-durfee-starter.sage](assets/templates/rsa-boneh-durfee-starter.sage) for low-private-exponent setup and polynomial construction.
+- Copy or adapt [hidden-number-lattice-starter.sage](assets/templates/hidden-number-lattice-starter.sage) for nonce-bias and hidden-number lattice setups.
+- Copy or adapt [ecdsa-nonce-reuse-starter.sage](assets/templates/ecdsa-nonce-reuse-starter.sage) for same-nonce ECDSA private-key recovery.
+- Copy or adapt [ecdsa-partial-nonce-lattice-starter.sage](assets/templates/ecdsa-partial-nonce-lattice-starter.sage) for biased or partially leaked nonce lattice attacks.
+- Copy or adapt [lcg-truncated-output-starter.sage](assets/templates/lcg-truncated-output-starter.sage) for recovering LCG state from high-bit leaks.
 
 ## Resource
 

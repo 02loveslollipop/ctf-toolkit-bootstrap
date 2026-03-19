@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCROW - Stego Toolbox"
+  short_description: "Stego tools for hidden-data workflows"
+  default_prompt: "Use $opencrow-stego-toolbox for steganography triage and extraction with the installed OpenCROW stego stack."

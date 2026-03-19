@@ -82,6 +82,6 @@ print(M^5)
 - Print intermediate values that matter for debugging: moduli, polynomial degree, lattice dimensions, recovered candidates.
 - Prefer deterministic algebra first; only brute force after reducing the search space.
 - If Sage syntax is uncertain, write a small probe snippet and run it through the bundled runner before building the full exploit.
-- Start from the templates in `/home/zerotwo/.codex/skills/sagemath/assets/templates/` instead of rebuilding common attack scaffolds from scratch.
+- Start from the templates in `~/.codex/skills/sagemath/assets/templates/` instead of rebuilding common attack scaffolds from scratch.
 - Use the nonce-reuse and hidden-number lattice templates as starting points for ECDSA-style signature attacks.
 - Treat Boneh-Durfee and partial-nonce templates as scaffolds: tune dimensions and bounds to the exact challenge instead of expecting one-size-fits-all parameters.

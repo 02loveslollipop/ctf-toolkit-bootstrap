@@ -2,7 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_DIR="${HOME}/.codex/skills"
+TARGET_HOME="${OPENCROW_HOME:-$HOME}"
+TARGET_DIR="${TARGET_HOME}/.codex/skills"
 DRY_RUN=0
 RETIRED_SKILLS=(
   "ctf-tools"

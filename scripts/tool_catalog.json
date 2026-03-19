@@ -1,0 +1,851 @@
+{
+  "base_apt_packages": [
+    "curl",
+    "git",
+    "python3-xlib",
+    "rsync"
+  ],
+  "state_relpath": ".local/share/opencrow/install-state.json",
+  "toolboxes": [
+    {
+      "id": "opencrow-crypto-toolbox",
+      "display_name": "OpenCROW Crypto Toolbox",
+      "summary": "Constraint solving, cracking, and crypto helper tooling."
+    },
+    {
+      "id": "opencrow-pwn-toolbox",
+      "display_name": "OpenCROW Pwn Toolbox",
+      "summary": "Exploit development, runtime debugging, and libc-oriented tooling."
+    },
+    {
+      "id": "opencrow-reversing-toolbox",
+      "display_name": "OpenCROW Reversing Toolbox",
+      "summary": "Static and dynamic binary analysis, emulation, and tracing."
+    },
+    {
+      "id": "opencrow-network-toolbox",
+      "display_name": "OpenCROW Network Toolbox",
+      "summary": "Packet analysis, PCAP tooling, and network troubleshooting."
+    },
+    {
+      "id": "opencrow-web-toolbox",
+      "display_name": "OpenCROW Web Toolbox",
+      "summary": "Web fuzzing, endpoint discovery, and SQLi helpers."
+    },
+    {
+      "id": "opencrow-forensics-toolbox",
+      "display_name": "OpenCROW Forensics Toolbox",
+      "summary": "Memory forensics, metadata extraction, and file carving."
+    },
+    {
+      "id": "opencrow-stego-toolbox",
+      "display_name": "OpenCROW Stego Toolbox",
+      "summary": "Steganography discovery and extraction helpers."
+    },
+    {
+      "id": "opencrow-osint-toolbox",
+      "display_name": "OpenCROW OSINT Toolbox",
+      "summary": "Reconnaissance, archive lookups, and public search tooling."
+    },
+    {
+      "id": "opencrow-utility-toolbox",
+      "display_name": "OpenCROW Utility Toolbox",
+      "summary": "Workflow helpers for shells, JSON/YAML, and search."
+    }
+  ],
+  "tools": [
+    {
+      "id": "z3-solver",
+      "display_name": "z3-solver",
+      "toolbox": "opencrow-crypto-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "SMT solver for bit-vectors and constraint solving.",
+      "homepage_url": "https://pypi.org/project/z3-solver/",
+      "license_url": "https://pypi.org/project/z3-solver/",
+      "install": {"kind": "pip", "package": "z3-solver==4.13.0.0"},
+      "verify": {"kind": "module", "value": "z3"}
+    },
+    {
+      "id": "fpylll",
+      "display_name": "fpylll",
+      "toolbox": "opencrow-crypto-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "LLL/BKZ lattice reduction for Python workflows.",
+      "homepage_url": "https://pypi.org/project/fpylll/",
+      "license_url": "https://pypi.org/project/fpylll/",
+      "install": {"kind": "pip", "package": "fpylll==0.6.4"},
+      "verify": {"kind": "module", "value": "fpylll"}
+    },
+    {
+      "id": "pycryptodome",
+      "display_name": "PyCryptodome",
+      "toolbox": "opencrow-crypto-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Fast cryptographic primitives for challenge helpers.",
+      "homepage_url": "https://pycryptodome.readthedocs.io/",
+      "license_url": "https://github.com/Legrandin/pycryptodome/blob/master/LICENSE.rst",
+      "install": {"kind": "pip", "package": "pycryptodome==3.23.0"},
+      "verify": {"kind": "module", "value": "Crypto"}
+    },
+    {
+      "id": "hashcat",
+      "display_name": "hashcat",
+      "toolbox": "opencrow-crypto-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Password and hash cracking with CPU or GPU acceleration.",
+      "homepage_url": "https://hashcat.net/hashcat/",
+      "license_url": "https://github.com/hashcat/hashcat/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "hashcat"},
+      "verify": {"kind": "command", "value": "hashcat"}
+    },
+    {
+      "id": "john",
+      "display_name": "John the Ripper",
+      "toolbox": "opencrow-crypto-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Versatile password cracking tool for many hash formats.",
+      "homepage_url": "https://www.openwall.com/john/",
+      "license_url": "https://packages.ubuntu.com/noble/john",
+      "install": {"kind": "apt", "package": "john"},
+      "verify": {"kind": "command", "value": "john"}
+    },
+    {
+      "id": "factordb-pycli",
+      "display_name": "FactorDB client",
+      "toolbox": "opencrow-crypto-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "CLI and Python client for quick FactorDB lookups.",
+      "homepage_url": "https://pypi.org/project/factordb-pycli/",
+      "license_url": "https://pypi.org/project/factordb-pycli/",
+      "install": {"kind": "pip", "package": "factordb-pycli==1.3.0"},
+      "verify": {"kind": "module", "value": "factordb"}
+    },
+    {
+      "id": "pwntools",
+      "display_name": "pwntools",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Exploit scripting and remote/process interaction helpers.",
+      "homepage_url": "https://docs.pwntools.com/",
+      "license_url": "https://github.com/Gallopsled/pwntools/blob/dev/LICENSE-pwntools.txt",
+      "install": {"kind": "pip", "package": "pwntools==4.15.0"},
+      "verify": {"kind": "module", "value": "pwn"}
+    },
+    {
+      "id": "checksec",
+      "display_name": "checksec",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Inspect ELF exploit mitigations quickly.",
+      "homepage_url": "https://packages.ubuntu.com/noble/checksec",
+      "license_url": "https://packages.ubuntu.com/noble/checksec",
+      "install": {"kind": "apt", "package": "checksec"},
+      "verify": {"kind": "command", "value": "checksec"}
+    },
+    {
+      "id": "gdb",
+      "display_name": "gdb",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "GNU debugger for local exploit development.",
+      "homepage_url": "https://www.sourceware.org/gdb/",
+      "license_url": "https://packages.ubuntu.com/noble/gdb",
+      "install": {"kind": "apt", "package": "gdb"},
+      "verify": {"kind": "command", "value": "gdb"}
+    },
+    {
+      "id": "gdbserver",
+      "display_name": "gdbserver",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Remote GDB stub for process debugging.",
+      "homepage_url": "https://www.sourceware.org/gdb/",
+      "license_url": "https://packages.ubuntu.com/noble/gdbserver",
+      "install": {"kind": "apt", "package": "gdbserver"},
+      "verify": {"kind": "command", "value": "gdbserver"}
+    },
+    {
+      "id": "patchelf",
+      "display_name": "patchelf",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Patch ELF interpreters, rpaths, and dependencies.",
+      "homepage_url": "https://github.com/NixOS/patchelf",
+      "license_url": "https://github.com/NixOS/patchelf/blob/master/COPYING",
+      "install": {"kind": "apt", "package": "patchelf"},
+      "verify": {"kind": "command", "value": "patchelf"}
+    },
+    {
+      "id": "qemu-user",
+      "display_name": "qemu-user",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Run non-native challenge binaries in user mode.",
+      "homepage_url": "https://www.qemu.org/",
+      "license_url": "https://packages.ubuntu.com/noble/qemu-user",
+      "install": {"kind": "apt", "package": "qemu-user"},
+      "verify": {"kind": "command", "value": "qemu-aarch64"}
+    },
+    {
+      "id": "qemu-user-static",
+      "display_name": "qemu-user-static",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Static QEMU user binaries for foreign architectures.",
+      "homepage_url": "https://www.qemu.org/",
+      "license_url": "https://packages.ubuntu.com/noble/qemu-user-static",
+      "install": {"kind": "apt", "package": "qemu-user-static"},
+      "verify": {"kind": "command", "value": "qemu-aarch64-static"}
+    },
+    {
+      "id": "nasm",
+      "display_name": "nasm",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Assembler for shellcode and test harnesses.",
+      "homepage_url": "https://www.nasm.us/",
+      "license_url": "https://packages.ubuntu.com/noble/nasm",
+      "install": {"kind": "apt", "package": "nasm"},
+      "verify": {"kind": "command", "value": "nasm"}
+    },
+    {
+      "id": "gcc",
+      "display_name": "gcc",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Compile local harnesses and shellcode helpers.",
+      "homepage_url": "https://gcc.gnu.org/",
+      "license_url": "https://packages.ubuntu.com/noble/gcc",
+      "install": {"kind": "apt", "package": "gcc"},
+      "verify": {"kind": "command", "value": "gcc"}
+    },
+    {
+      "id": "pwninit",
+      "display_name": "pwninit",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Patch challenge binaries against shipped libc and loader pairs.",
+      "homepage_url": "https://github.com/io12/pwninit",
+      "license_url": "https://github.com/io12/pwninit/blob/master/LICENSE",
+      "install": {"kind": "direct", "handler": "pwninit", "version": "3.3.1", "apt_dependencies": ["curl"]},
+      "verify": {"kind": "command", "value": "pwninit"}
+    },
+    {
+      "id": "pwndbg",
+      "display_name": "pwndbg",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Exploit-focused GDB frontend.",
+      "homepage_url": "https://github.com/pwndbg/pwndbg",
+      "license_url": "https://github.com/pwndbg/pwndbg/blob/dev/LICENSE.md",
+      "install": {"kind": "direct", "handler": "pwndbg", "version": "2026.02.18", "apt_dependencies": ["curl"]},
+      "verify": {"kind": "command", "value": "pwndbg"}
+    },
+    {
+      "id": "seccomp-tools",
+      "display_name": "seccomp-tools",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Inspect seccomp filters and BPF policies.",
+      "homepage_url": "https://github.com/david942j/seccomp-tools",
+      "license_url": "https://github.com/david942j/seccomp-tools/blob/master/LICENSE.txt",
+      "install": {"kind": "gem", "package": "seccomp-tools", "version": "1.6.2", "apt_dependencies": ["ruby"]},
+      "verify": {"kind": "command", "value": "seccomp-tools"}
+    },
+    {
+      "id": "one_gadget",
+      "display_name": "one_gadget",
+      "toolbox": "opencrow-pwn-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Find libc one-shot gadgets for RCE attempts.",
+      "homepage_url": "https://github.com/david942j/one_gadget",
+      "license_url": "https://github.com/david942j/one_gadget/blob/master/LICENSE",
+      "install": {"kind": "gem", "package": "one_gadget", "version": "1.10.0", "apt_dependencies": ["ruby"]},
+      "verify": {"kind": "command", "value": "one_gadget"}
+    },
+    {
+      "id": "angr",
+      "display_name": "angr",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Symbolic execution and CFG recovery framework.",
+      "homepage_url": "https://angr.io/",
+      "license_url": "https://github.com/angr/angr/blob/master/LICENSE",
+      "install": {"kind": "pip", "package": "angr==9.2.204"},
+      "verify": {"kind": "module", "value": "angr"}
+    },
+    {
+      "id": "claripy",
+      "display_name": "claripy",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Symbolic expression engine used with or without angr.",
+      "homepage_url": "https://github.com/angr/claripy",
+      "license_url": "https://github.com/angr/claripy/blob/master/LICENSE",
+      "install": {"kind": "pip", "package": "claripy==9.2.204"},
+      "verify": {"kind": "module", "value": "claripy"}
+    },
+    {
+      "id": "capstone",
+      "display_name": "capstone",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Multi-arch disassembly engine.",
+      "homepage_url": "https://www.capstone-engine.org/",
+      "license_url": "https://github.com/capstone-engine/capstone/blob/next/LICENSE.TXT",
+      "install": {"kind": "pip", "package": "capstone==5.0.6"},
+      "verify": {"kind": "module", "value": "capstone"}
+    },
+    {
+      "id": "unicorn",
+      "display_name": "unicorn",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "CPU emulation for scripted analysis.",
+      "homepage_url": "https://www.unicorn-engine.org/",
+      "license_url": "https://github.com/unicorn-engine/unicorn/blob/dev/COPYING",
+      "install": {"kind": "pip", "package": "unicorn==2.1.2"},
+      "verify": {"kind": "module", "value": "unicorn"}
+    },
+    {
+      "id": "keystone",
+      "display_name": "keystone-engine",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Assembler engine for generating shellcode and stubs.",
+      "homepage_url": "https://www.keystone-engine.org/",
+      "license_url": "https://github.com/keystone-engine/keystone/blob/master/LICENSE-COM.TXT",
+      "install": {"kind": "pip", "package": "keystone-engine==0.9.2"},
+      "verify": {"kind": "module", "value": "keystone"}
+    },
+    {
+      "id": "ropper",
+      "display_name": "ropper",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Find gadgets and build ROP material quickly.",
+      "homepage_url": "https://github.com/sashs/Ropper",
+      "license_url": "https://github.com/sashs/Ropper/blob/master/LICENSE.txt",
+      "install": {"kind": "pip", "package": "ropper==1.13.13"},
+      "verify": {"kind": "module", "value": "ropper"}
+    },
+    {
+      "id": "ropgadget",
+      "display_name": "ROPGadget",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Dedicated gadget finder already present in the Python stack.",
+      "homepage_url": "https://github.com/JonathanSalwan/ROPgadget",
+      "license_url": "https://github.com/JonathanSalwan/ROPgadget/blob/master/LICENSE_BSD.txt",
+      "install": {"kind": "pip", "package": "ROPGadget==7.7"},
+      "verify": {"kind": "command", "value": "ROPgadget"}
+    },
+    {
+      "id": "r2pipe",
+      "display_name": "r2pipe",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Drive radare2 from Python scripts.",
+      "homepage_url": "https://github.com/radareorg/radare2-r2pipe",
+      "license_url": "https://github.com/radareorg/radare2-r2pipe/blob/master/LICENSE",
+      "install": {"kind": "pip", "package": "r2pipe==1.9.6"},
+      "verify": {"kind": "module", "value": "r2pipe"}
+    },
+    {
+      "id": "lief",
+      "display_name": "LIEF",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Parse and patch executable formats.",
+      "homepage_url": "https://lief.re/",
+      "license_url": "https://github.com/lief-project/LIEF/blob/master/LICENSE",
+      "install": {"kind": "pip", "package": "lief==0.17.4"},
+      "verify": {"kind": "module", "value": "lief"}
+    },
+    {
+      "id": "qiling",
+      "display_name": "Qiling",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Multi-architecture binary emulation framework.",
+      "homepage_url": "https://github.com/qilingframework/qiling",
+      "license_url": "https://github.com/qilingframework/qiling/blob/master/COPYING",
+      "install": {"kind": "pip", "package": "qiling==1.4.6"},
+      "verify": {"kind": "module", "value": "qiling"}
+    },
+    {
+      "id": "frida-tools",
+      "display_name": "Frida Tools",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Dynamic instrumentation toolkit and CLI helpers.",
+      "homepage_url": "https://frida.re/",
+      "license_url": "https://github.com/frida/frida-tools/blob/main/COPYING",
+      "install": {"kind": "pip", "package": "frida-tools==14.6.1"},
+      "verify": {"kind": "command", "value": "frida-ps"}
+    },
+    {
+      "id": "ghidra",
+      "display_name": "Ghidra",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Headless and GUI reverse engineering suite.",
+      "homepage_url": "https://github.com/NationalSecurityAgency/ghidra",
+      "license_url": "https://github.com/NationalSecurityAgency/ghidra/blob/master/LICENSE",
+      "install": {
+        "kind": "direct",
+        "handler": "ghidra",
+        "version": "12.0.4",
+        "date": "20260303",
+        "apt_dependencies": ["openjdk-21-jre", "unzip", "curl"]
+      },
+      "verify": {"kind": "command", "value": "ghidra-headless"}
+    },
+    {
+      "id": "radare2",
+      "display_name": "radare2",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Interactive and scriptable binary analysis.",
+      "homepage_url": "https://rada.re/n/",
+      "license_url": "https://packages.ubuntu.com/noble/radare2",
+      "install": {"kind": "apt", "package": "radare2"},
+      "verify": {"kind": "command", "value": "r2"}
+    },
+    {
+      "id": "strace",
+      "display_name": "strace",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Trace syscalls and runtime behavior.",
+      "homepage_url": "https://strace.io/",
+      "license_url": "https://packages.ubuntu.com/noble/strace",
+      "install": {"kind": "apt", "package": "strace"},
+      "verify": {"kind": "command", "value": "strace"}
+    },
+    {
+      "id": "ltrace",
+      "display_name": "ltrace",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Trace library calls and dynamic linking behavior.",
+      "homepage_url": "https://packages.ubuntu.com/noble/ltrace",
+      "license_url": "https://packages.ubuntu.com/noble/ltrace",
+      "install": {"kind": "apt", "package": "ltrace"},
+      "verify": {"kind": "command", "value": "ltrace"}
+    },
+    {
+      "id": "binwalk",
+      "display_name": "binwalk",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Firmware and embedded blob extraction.",
+      "homepage_url": "https://github.com/ReFirmLabs/binwalk",
+      "license_url": "https://github.com/ReFirmLabs/binwalk/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "binwalk"},
+      "verify": {"kind": "command", "value": "binwalk"}
+    },
+    {
+      "id": "binutils",
+      "display_name": "binutils",
+      "toolbox": "opencrow-reversing-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Objdump and related binary inspection utilities.",
+      "homepage_url": "https://www.gnu.org/software/binutils/",
+      "license_url": "https://packages.ubuntu.com/noble/binutils",
+      "install": {"kind": "apt", "package": "binutils"},
+      "verify": {"kind": "command", "value": "objdump"}
+    },
+    {
+      "id": "scapy",
+      "display_name": "scapy",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Packet crafting and PCAP processing in Python.",
+      "homepage_url": "https://scapy.net/",
+      "license_url": "https://github.com/secdev/scapy/blob/master/LICENSE",
+      "install": {"kind": "pip", "package": "scapy==2.7.0"},
+      "verify": {"kind": "module", "value": "scapy"}
+    },
+    {
+      "id": "tshark",
+      "display_name": "tshark",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Headless Wireshark CLI for PCAP analysis.",
+      "homepage_url": "https://www.wireshark.org/docs/man-pages/tshark.html",
+      "license_url": "https://packages.ubuntu.com/noble/tshark",
+      "install": {"kind": "apt", "package": "tshark"},
+      "verify": {"kind": "command", "value": "tshark"}
+    },
+    {
+      "id": "tcpdump",
+      "display_name": "tcpdump",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Command-line packet capture and display.",
+      "homepage_url": "https://www.tcpdump.org/",
+      "license_url": "https://packages.ubuntu.com/noble/tcpdump",
+      "install": {"kind": "apt", "package": "tcpdump"},
+      "verify": {"kind": "command", "value": "tcpdump"}
+    },
+    {
+      "id": "netcat-openbsd",
+      "display_name": "netcat-openbsd",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Raw TCP and UDP client/server for quick tests.",
+      "homepage_url": "https://packages.ubuntu.com/noble/netcat-openbsd",
+      "license_url": "https://packages.ubuntu.com/noble/netcat-openbsd",
+      "install": {"kind": "apt", "package": "netcat-openbsd"},
+      "verify": {"kind": "command", "value": "nc"}
+    },
+    {
+      "id": "socat",
+      "display_name": "socat",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Bidirectional socket relay and port forwarding tool.",
+      "homepage_url": "http://www.dest-unreach.org/socat/",
+      "license_url": "https://packages.ubuntu.com/noble/socat",
+      "install": {"kind": "apt", "package": "socat"},
+      "verify": {"kind": "command", "value": "socat"}
+    },
+    {
+      "id": "nmap",
+      "display_name": "nmap",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Network discovery and service fingerprinting.",
+      "homepage_url": "https://nmap.org/",
+      "license_url": "https://packages.ubuntu.com/noble/nmap",
+      "install": {"kind": "apt", "package": "nmap"},
+      "verify": {"kind": "command", "value": "nmap"}
+    },
+    {
+      "id": "sqlmap",
+      "display_name": "sqlmap",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Automated SQL injection exploitation and enumeration.",
+      "homepage_url": "https://sqlmap.org/",
+      "license_url": "https://github.com/sqlmapproject/sqlmap/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "sqlmap"},
+      "verify": {"kind": "command", "value": "sqlmap"}
+    },
+    {
+      "id": "gobuster",
+      "display_name": "gobuster",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Fast directory and DNS brute force tool.",
+      "homepage_url": "https://github.com/OJ/gobuster",
+      "license_url": "https://github.com/OJ/gobuster/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "gobuster"},
+      "verify": {"kind": "command", "value": "gobuster"}
+    },
+    {
+      "id": "ffuf",
+      "display_name": "ffuf",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Web content discovery and parameter fuzzing.",
+      "homepage_url": "https://github.com/ffuf/ffuf",
+      "license_url": "https://github.com/ffuf/ffuf/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "ffuf"},
+      "verify": {"kind": "command", "value": "ffuf"}
+    },
+    {
+      "id": "dirb",
+      "display_name": "dirb",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Classic web content brute forcer.",
+      "homepage_url": "https://packages.ubuntu.com/noble/dirb",
+      "license_url": "https://packages.ubuntu.com/noble/dirb",
+      "install": {"kind": "apt", "package": "dirb"},
+      "verify": {"kind": "command", "value": "dirb"}
+    },
+    {
+      "id": "wfuzz",
+      "display_name": "wfuzz",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Parameter and path fuzzing for web applications.",
+      "homepage_url": "https://wfuzz.readthedocs.io/",
+      "license_url": "https://packages.ubuntu.com/noble/wfuzz",
+      "install": {"kind": "apt", "package": "wfuzz"},
+      "verify": {"kind": "command", "value": "wfuzz"}
+    },
+    {
+      "id": "owasp-zap",
+      "display_name": "OWASP ZAP",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["full"],
+      "summary": "Open-source web proxy and active scanner.",
+      "homepage_url": "https://www.zaproxy.org/download/",
+      "license_url": "https://github.com/zaproxy/zaproxy/blob/main/LICENSE",
+      "install": {"kind": "direct", "handler": "owasp-zap", "apt_dependencies": ["curl", "tar", "openjdk-17-jre"]},
+      "verify": {"kind": "command", "value": "zap.sh"}
+    },
+    {
+      "id": "burp-suite-community",
+      "display_name": "Burp Suite Community",
+      "toolbox": "opencrow-web-toolbox",
+      "profiles": ["full"],
+      "requires_terms_acceptance": true,
+      "summary": "Manual web testing proxy. Manual phase 1 step.",
+      "homepage_url": "https://portswigger.net/burp/communitydownload",
+      "license_url": "https://portswigger.net/burp/documentation/desktop/getting-started/license",
+      "install": {"kind": "manual", "url": "https://portswigger.net/burp/communitydownload"},
+      "verify": {"kind": "command", "value": "burpsuite"}
+    },
+    {
+      "id": "volatility3",
+      "display_name": "Volatility 3",
+      "toolbox": "opencrow-forensics-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Memory forensics framework for RAM dump analysis.",
+      "homepage_url": "https://github.com/volatilityfoundation/volatility3",
+      "license_url": "https://github.com/volatilityfoundation/volatility3/blob/develop/LICENSE.txt",
+      "install": {"kind": "pip", "package": "volatility3==2.27.0"},
+      "verify": {"kind": "command", "value": "vol"}
+    },
+    {
+      "id": "exiftool",
+      "display_name": "exiftool",
+      "toolbox": "opencrow-forensics-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Metadata extraction and inspection across many file formats.",
+      "homepage_url": "https://exiftool.org/",
+      "license_url": "https://packages.ubuntu.com/noble/libimage-exiftool-perl",
+      "install": {"kind": "apt", "package": "libimage-exiftool-perl"},
+      "verify": {"kind": "command", "value": "exiftool"}
+    },
+    {
+      "id": "foremost",
+      "display_name": "foremost",
+      "toolbox": "opencrow-forensics-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Recover files by header/footer carving.",
+      "homepage_url": "https://packages.ubuntu.com/noble/foremost",
+      "license_url": "https://packages.ubuntu.com/noble/foremost",
+      "install": {"kind": "apt", "package": "foremost"},
+      "verify": {"kind": "command", "value": "foremost"}
+    },
+    {
+      "id": "autopsy",
+      "display_name": "Autopsy",
+      "toolbox": "opencrow-forensics-toolbox",
+      "profiles": ["full"],
+      "summary": "Digital forensics GUI platform.",
+      "homepage_url": "https://www.autopsy.com/download/",
+      "license_url": "https://github.com/sleuthkit/autopsy/blob/develop/LICENSE-2.0.txt",
+      "install": {
+        "kind": "direct",
+        "handler": "autopsy",
+        "apt_dependencies": [
+          "ant",
+          "autoconf",
+          "automake",
+          "build-essential",
+          "curl",
+          "git",
+          "gstreamer1.0-alsa",
+          "gstreamer1.0-gl",
+          "gstreamer1.0-gtk3",
+          "gstreamer1.0-libav",
+          "gstreamer1.0-plugins-bad",
+          "gstreamer1.0-plugins-base",
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-plugins-ugly",
+          "gstreamer1.0-pulseaudio",
+          "gstreamer1.0-qt5",
+          "gstreamer1.0-tools",
+          "gstreamer1.0-x",
+          "libafflib-dev",
+          "libde265-dev",
+          "libewf-dev",
+          "libgstreamer1.0-0",
+          "libheif-dev",
+          "libpq-dev",
+          "libvhdi-dev",
+          "libvmdk-dev",
+          "libvslvm-dev",
+          "openjdk-17-jdk",
+          "openjdk-17-jre",
+          "testdisk",
+          "unzip",
+          "wget",
+          "zip"
+        ]
+      },
+      "verify": {"kind": "command", "value": "autopsy"}
+    },
+    {
+      "id": "steghide",
+      "display_name": "steghide",
+      "toolbox": "opencrow-stego-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Hide or extract data from images and audio with passwords.",
+      "homepage_url": "https://packages.ubuntu.com/noble/steghide",
+      "license_url": "https://packages.ubuntu.com/noble/steghide",
+      "install": {"kind": "apt", "package": "steghide"},
+      "verify": {"kind": "command", "value": "steghide"}
+    },
+    {
+      "id": "zsteg",
+      "display_name": "zsteg",
+      "toolbox": "opencrow-stego-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Detect hidden payloads in PNG and BMP images.",
+      "homepage_url": "https://github.com/zed-0xff/zsteg",
+      "license_url": "https://github.com/zed-0xff/zsteg/blob/master/LICENSE",
+      "install": {"kind": "gem", "package": "zsteg", "version": "0.2.14", "apt_dependencies": ["ruby"]},
+      "verify": {"kind": "command", "value": "zsteg"}
+    },
+    {
+      "id": "stegsolve",
+      "display_name": "StegSolve",
+      "toolbox": "opencrow-stego-toolbox",
+      "profiles": ["full"],
+      "summary": "Image plane and LSB analysis GUI.",
+      "homepage_url": "https://github.com/eugenekolo/sec-tools/tree/master/stego/stegsolve",
+      "license_url": "https://github.com/eugenekolo/sec-tools",
+      "install": {"kind": "direct", "handler": "stegsolve", "apt_dependencies": ["curl", "openjdk-17-jre"]},
+      "verify": {"kind": "command", "value": "stegsolve"}
+    },
+    {
+      "id": "openstego",
+      "display_name": "OpenStego",
+      "toolbox": "opencrow-stego-toolbox",
+      "profiles": ["full"],
+      "summary": "General-purpose steganography GUI/CLI toolkit.",
+      "homepage_url": "https://www.openstego.com/",
+      "license_url": "https://github.com/syvaidya/openstego/blob/master/LICENSE",
+      "install": {"kind": "direct", "handler": "openstego", "apt_dependencies": ["curl", "unzip", "openjdk-17-jre"]},
+      "verify": {"kind": "command", "value": "openstego"}
+    },
+    {
+      "id": "shodan",
+      "display_name": "Shodan CLI",
+      "toolbox": "opencrow-osint-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "CLI client for Shodan search workflows.",
+      "homepage_url": "https://pypi.org/project/shodan/",
+      "license_url": "https://pypi.org/project/shodan/",
+      "install": {"kind": "pip", "package": "shodan==1.31.0"},
+      "verify": {"kind": "command", "value": "shodan"}
+    },
+    {
+      "id": "sherlock",
+      "display_name": "Sherlock",
+      "toolbox": "opencrow-osint-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Username enumeration across many social platforms.",
+      "homepage_url": "https://github.com/sherlock-project/sherlock",
+      "license_url": "https://github.com/sherlock-project/sherlock/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "sherlock"},
+      "verify": {"kind": "command", "value": "sherlock"}
+    },
+    {
+      "id": "waybackpy",
+      "display_name": "waybackpy",
+      "toolbox": "opencrow-osint-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Access archived site snapshots from the Wayback Machine.",
+      "homepage_url": "https://pypi.org/project/waybackpy/",
+      "license_url": "https://github.com/akamhy/waybackpy/blob/master/LICENSE",
+      "install": {"kind": "pip", "package": "waybackpy==3.0.6"},
+      "verify": {"kind": "module", "value": "waybackpy"}
+    },
+    {
+      "id": "theharvester",
+      "display_name": "theHarvester",
+      "toolbox": "opencrow-osint-toolbox",
+      "profiles": ["full"],
+      "summary": "Public-source reconnaissance collector.",
+      "homepage_url": "https://github.com/laramies/theHarvester",
+      "license_url": "https://github.com/laramies/theHarvester/blob/master/LICENSE",
+      "install": {"kind": "direct", "handler": "theharvester", "apt_dependencies": ["git", "python3-venv"]},
+      "verify": {"kind": "command", "value": "theHarvester"}
+    },
+    {
+      "id": "jq",
+      "display_name": "jq",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "JSON slicing and transformation on the command line.",
+      "homepage_url": "https://jqlang.org/",
+      "license_url": "https://packages.ubuntu.com/noble/jq",
+      "install": {"kind": "apt", "package": "jq"},
+      "verify": {"kind": "command", "value": "jq"}
+    },
+    {
+      "id": "yq",
+      "display_name": "yq",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "YAML and structured-data processing from the shell.",
+      "homepage_url": "https://packages.ubuntu.com/noble/yq",
+      "license_url": "https://packages.ubuntu.com/noble/yq",
+      "install": {"kind": "apt", "package": "yq"},
+      "verify": {"kind": "command", "value": "yq"}
+    },
+    {
+      "id": "xxd",
+      "display_name": "xxd",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Hex dump and reverse-hex utility.",
+      "homepage_url": "https://packages.ubuntu.com/noble/vim-common",
+      "license_url": "https://packages.ubuntu.com/noble/vim-common",
+      "install": {"kind": "apt", "package": "vim-common"},
+      "verify": {"kind": "command", "value": "xxd"}
+    },
+    {
+      "id": "tmux",
+      "display_name": "tmux",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Terminal multiplexer for multi-pane CTF workflows.",
+      "homepage_url": "https://github.com/tmux/tmux",
+      "license_url": "https://github.com/tmux/tmux/blob/master/COPYING",
+      "install": {"kind": "apt", "package": "tmux"},
+      "verify": {"kind": "command", "value": "tmux"}
+    },
+    {
+      "id": "screen",
+      "display_name": "screen",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Alternative terminal multiplexer.",
+      "homepage_url": "https://www.gnu.org/software/screen/",
+      "license_url": "https://packages.ubuntu.com/noble/screen",
+      "install": {"kind": "apt", "package": "screen"},
+      "verify": {"kind": "command", "value": "screen"}
+    },
+    {
+      "id": "ripgrep",
+      "display_name": "ripgrep",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Fast recursive code and text search.",
+      "homepage_url": "https://github.com/BurntSushi/ripgrep",
+      "license_url": "https://github.com/BurntSushi/ripgrep/blob/master/LICENSE-MIT",
+      "install": {"kind": "apt", "package": "ripgrep"},
+      "verify": {"kind": "command", "value": "rg"}
+    },
+    {
+      "id": "fzf",
+      "display_name": "fzf",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Interactive fuzzy finder for shell workflows.",
+      "homepage_url": "https://github.com/junegunn/fzf",
+      "license_url": "https://github.com/junegunn/fzf/blob/master/LICENSE",
+      "install": {"kind": "apt", "package": "fzf"},
+      "verify": {"kind": "command", "value": "fzf"}
+    }
+  ]
+}

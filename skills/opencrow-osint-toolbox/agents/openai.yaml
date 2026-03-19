@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCROW - OSINT Toolbox"
+  short_description: "OSINT tools for recon workflows"
+  default_prompt: "Use $opencrow-osint-toolbox for reconnaissance and archive lookups with the installed OpenCROW OSINT stack."

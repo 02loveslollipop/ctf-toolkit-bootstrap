@@ -5,7 +5,7 @@ description: Use the Anaconda `ctf` environment and installed exploit tooling fo
 
 # OpenCROW Pwn Toolbox
 
-Use this skill for exploit development, ELF triage, debugger-heavy workflows, loader/libc patching, and architecture-emulated pwn work in the `ctf` environment.
+Use this skill for exploit development, ELF triage, debugger-heavy workflows, loader/libc patching, one-gadget hunting, and architecture-emulated pwn work in the `ctf` environment.
 
 ## Quick Start
 
@@ -41,6 +41,7 @@ python ~/.codex/skills/opencrow-pwn-toolbox/scripts/verify_toolkit.py
 - Use `checksec`, `patchelf`, and `pwninit` early to understand or normalize the challenge runtime.
 - Use `gdb` and `pwndbg` for breakpoints, heap inspection, and exploit debugging.
 - Use `seccomp-tools` when syscall filtering or sandboxing matters.
+- Use `one_gadget` when the libc version is known and you want fast candidate constraints for shell-spawning gadgets.
 - Use `qemu-user` and `qemu-user-static` when the shipped challenge binary is not native to the host architecture.
 - Use `gcc` and `nasm` for shellcode stubs, helper binaries, or local harnesses.
 

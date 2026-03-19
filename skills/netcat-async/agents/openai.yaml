@@ -1,4 +1,4 @@
 interface:
-  display_name: "Netcat Async I/O"
-  short_description: "Async netcat session control for reliable I/O."
+  display_name: "OpenCROW I/O - Netcat Async"
+  short_description: "OpenCROW async netcat session control for reliable I/O."
   default_prompt: "Use this skill to run persistent netcat-style TCP sessions with async send/read/stop workflows."

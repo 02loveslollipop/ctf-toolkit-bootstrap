@@ -13,6 +13,7 @@ Use this reference when the target is exploit-oriented and the question is which
 - `gdb <binary>` and `gdbserver :1234 <binary>`: debugger workflows.
 - `pwninit`: patch a challenge binary against the shipped `libc` and loader.
 - `seccomp-tools dump <binary>`: inspect seccomp filters.
+- `one_gadget libc.so.6`: enumerate libc one-shot gadgets and constraints.
 - `patchelf --print-interpreter <binary>`: inspect or rewrite ELF runtime metadata.
 - `qemu-aarch64 ./chall`: run a non-native userland binary.
 - `gcc` and `nasm`: build helper code, shellcode harnesses, or PoCs.

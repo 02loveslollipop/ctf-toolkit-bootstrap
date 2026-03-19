@@ -1,4 +1,4 @@
 interface:
-  display_name: "SageMath"
-  short_description: "Run SageMath code or .sage files"
+  display_name: "OpenCROW Runner - SageMath"
+  short_description: "Run SageMath code or .sage files through OpenCROW"
   default_prompt: "Use $sagemath to run SageMath code or execute a .sage file in the conda sage environment."

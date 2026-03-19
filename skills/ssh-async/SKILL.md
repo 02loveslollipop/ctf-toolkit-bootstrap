@@ -3,7 +3,7 @@ name: ssh-async
 description: Maintain persistent asynchronous SSH sessions with bidirectional input/output across multiple commands. Use when Codex must keep an SSH shell open, send commands incrementally, inspect prompts or streamed output, reuse one authenticated connection for a task, or safely start/stop a long-lived remote session for debugging, administration, deployment, log inspection, or interactive line-based workflows on remote hosts.
 ---
 
-# SSH Async
+# OpenCROW I/O - SSH Async
 
 Use `scripts/sshx` to manage long-lived SSH sessions instead of one-shot `ssh` invocations.
 

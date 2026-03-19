@@ -24,6 +24,8 @@ jobs:
           bash -n scripts/uninstall.sh
           bash -n scripts/sync_skills.sh
           bash -n scripts/remove_skills.sh
+          python3 -m py_compile scripts/tool_catalog.py
+          python3 -m py_compile scripts/install_cli.py
 
       - name: Dry-run installer
         run: bash scripts/install.sh --env ctf --dry-run
@@ -36,3 +38,50 @@ jobs:
 
       - name: Smoke Makefile
         run: make smoke ENV=ctf
+
+  bootstrap-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          activate-environment: ""
+          python-version: "3.12"
+
+      - name: Real headless install
+        run: bash scripts/install.sh --env ctf --profile headless --all-toolboxes
+
+      - name: Verify managed install
+        run: bash scripts/verify.sh --env ctf
+
+      - name: Check synced skill directories
+        run: |
+          for skill_dir in \
+            "$HOME/.codex/skills/opencrow-crypto-toolbox" \
+            "$HOME/.codex/skills/opencrow-forensics-toolbox" \
+            "$HOME/.codex/skills/opencrow-network-toolbox" \
+            "$HOME/.codex/skills/opencrow-osint-toolbox" \
+            "$HOME/.codex/skills/opencrow-pwn-toolbox" \
+            "$HOME/.codex/skills/opencrow-reversing-toolbox" \
+            "$HOME/.codex/skills/opencrow-stego-toolbox" \
+            "$HOME/.codex/skills/opencrow-utility-toolbox" \
+            "$HOME/.codex/skills/opencrow-web-toolbox"
+          do
+            test -d "$skill_dir"
+          done
+
+      - name: Verify synced toolbox scripts
+        run: |
+          python3 "$HOME/.codex/skills/opencrow-crypto-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-forensics-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-network-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-osint-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-pwn-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-reversing-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-stego-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-utility-toolbox/scripts/verify_toolkit.py"
+          python3 "$HOME/.codex/skills/opencrow-web-toolbox/scripts/verify_toolkit.py"
