@@ -188,6 +188,10 @@ uninstall_direct_handler() {
       run_as_target rm -f "$TARGET_HOME/.local/bin/pwndbg"
       run_as_target rm -rf "$TARGET_HOME/.local/lib/pwndbg-gdb"
       ;;
+    opencrow-autosetup)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-autosetup"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-autosetup"
+      ;;
     *)
       echo "Unknown direct uninstall handler: $handler" >&2
       exit 2
