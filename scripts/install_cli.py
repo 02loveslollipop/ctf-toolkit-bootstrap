@@ -1091,9 +1091,10 @@ def resolve_selection(
     tool_ids: list[str],
     profile: str | None,
     interactive: bool,
+    initial_state: InteractiveState | None = None,
 ) -> dict[str, object]:
     if interactive:
-        state = InteractiveState()
+        state = initial_state or InteractiveState()
         if toolbox_ids:
             state.toolbox_ids = toolbox_ids
         if tool_ids:
@@ -1118,6 +1119,143 @@ def env_exists(ctx: InstallerContext) -> bool:
     payload = json.loads(result.stdout)
     env_names = {Path(path).name for path in payload.get("envs", [])}
     return ctx.env_name in env_names
+
+
+def load_existing_selection(catalog: tool_catalog.Catalog) -> dict[str, object] | None:
+    state_file = tool_catalog.state_path(catalog)
+    if not state_file.exists():
+        return None
+    state = tool_catalog.load_state(catalog, state_file)
+    return tool_catalog.verify_selection_from_state(catalog, state, all_tools=False)
+
+
+def state_to_interactive(selection: dict[str, object]) -> InteractiveState:
+    mode = str(selection.get("mode") or "fast")
+    profile = selection.get("profile")
+    return InteractiveState(
+        mode="personalized" if profile is None and selection.get("tool_ids") else mode,
+        toolbox_ids=list(selection["toolboxes"]),  # type: ignore[index]
+        profile=str(profile or "headless"),
+        tool_ids=list(selection["tool_ids"]),  # type: ignore[index]
+    )
+
+
+def merge_selections(
+    existing: dict[str, object] | None,
+    requested: dict[str, object],
+) -> dict[str, object]:
+    if existing is None:
+        return requested
+    tool_ids = sorted({*existing["tool_ids"], *requested["tool_ids"]})  # type: ignore[index]
+    toolboxes = sorted({*existing["toolboxes"], *requested["toolboxes"]})  # type: ignore[index]
+    return {
+        "mode": "incremental",
+        "profile": requested.get("profile") or existing.get("profile"),
+        "toolboxes": toolboxes,
+        "tool_ids": tool_ids,
+    }
+
+
+def apt_package_installed(package: str) -> bool:
+    result = subprocess.run(
+        ["dpkg-query", "-W", "-f=${db:Status-Status}", package],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0 and result.stdout.strip() == "installed"
+
+
+def module_present(ctx: InstallerContext, module_name: str) -> bool:
+    if not env_exists(ctx):
+        return False
+    result = subprocess.run(
+        [
+            str(ctx.conda_bin),
+            "run",
+            "-n",
+            ctx.env_name,
+            "python",
+            "-c",
+            f"import importlib.util as u, sys; sys.exit(0 if u.find_spec({module_name!r}) else 1)",
+        ],
+        env=ctx.target_env(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def conda_command_present(ctx: InstallerContext, command_name: str) -> bool:
+    if not env_exists(ctx):
+        return False
+    result = subprocess.run(
+        [
+            str(ctx.conda_bin),
+            "run",
+            "-n",
+            ctx.env_name,
+            "python",
+            "-c",
+            f"import shutil, sys; sys.exit(0 if shutil.which({command_name!r}) else 1)",
+        ],
+        env=ctx.target_env(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def target_command_present(ctx: InstallerContext, command_name: str) -> bool:
+    result = subprocess.run(
+        ["bash", "-lc", f"command -v {shlex.quote(command_name)} >/dev/null 2>&1"],
+        env=ctx.target_env(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+def tool_is_installed(ctx: InstallerContext, tool: dict[str, object]) -> bool:
+    verify = tool["verify"]  # type: ignore[index]
+    verify_kind = verify["kind"]
+    verify_value = verify["value"]
+    install_kind = tool["install"]["kind"]  # type: ignore[index]
+
+    if verify_kind == "module":
+        return module_present(ctx, str(verify_value))
+    if verify_kind == "command":
+        if install_kind == "pip":
+            return conda_command_present(ctx, str(verify_value))
+        return target_command_present(ctx, str(verify_value))
+    return False
+
+
+def pending_selection(
+    ctx: InstallerContext,
+    catalog: tool_catalog.Catalog,
+    selection: dict[str, object],
+) -> tuple[dict[str, object], list[str]]:
+    installed_tool_ids: list[str] = []
+    pending_tool_ids: list[str] = []
+    for tool_id in selection["tool_ids"]:  # type: ignore[index]
+        tool = catalog.tools[tool_id]
+        if tool_is_installed(ctx, tool):
+            installed_tool_ids.append(tool_id)
+        else:
+            pending_tool_ids.append(tool_id)
+    return (
+        {
+            "mode": "incremental-pending",
+            "profile": selection.get("profile"),
+            "toolboxes": sorted({catalog.tools[tool_id]["toolbox"] for tool_id in pending_tool_ids}),
+            "tool_ids": pending_tool_ids,
+        },
+        installed_tool_ids,
+    )
 
 
 def ruby_version(ctx: InstallerContext) -> str:
@@ -1341,6 +1479,40 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
 """.strip(),
         )
         return
+    if handler == "opencrow-autosetup":
+        source_dir = ROOT_DIR / "scripts"
+        install_dir = ctx.target_home / ".local/opt/opencrow-autosetup"
+        run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "755",
+                str(source_dir / "opencrow_autosetup.py"),
+                str(install_dir / "opencrow_autosetup.py"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "755",
+                str(source_dir / "opencrow-autosetup"),
+                str(install_dir / "opencrow-autosetup"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "ln",
+                "-sfn",
+                str(install_dir / "opencrow-autosetup"),
+                str(ctx.target_home / ".local/bin/opencrow-autosetup"),
+            ],
+        )
+        return
     raise typer.BadParameter(f"Unknown direct install handler: {handler}")
 
 
@@ -1349,18 +1521,30 @@ def set_tshark_debconf(ctx: InstallerContext) -> None:
     run_root_shell(ctx, script)
 
 
-def install_selection(ctx: InstallerContext, catalog: tool_catalog.Catalog, selection: dict[str, object]) -> None:
+def install_selection(
+    ctx: InstallerContext,
+    catalog: tool_catalog.Catalog,
+    requested_selection: dict[str, object],
+    selection_to_save: dict[str, object],
+) -> None:
     os.environ["OPENCROW_HOME"] = str(ctx.target_home)
-    plan = tool_catalog.build_plan(catalog, selection)
+    pending, already_installed = pending_selection(ctx, catalog, requested_selection)
+    plan = tool_catalog.build_plan(catalog, pending)
 
     run_as_target(ctx, ["mkdir", "-p", str(ctx.target_home / ".local/bin"), str(ctx.target_home / ".local/opt")])
     run_as_target(ctx, ["mkdir", "-p", str(ctx.target_home / ".codex/skills")])
 
+    if already_installed:
+        names = ", ".join(already_installed)
+        console.print(f"Already installed and kept in managed state: {names}")
+
     if "tshark" in plan["selected_tool_ids"]:
         set_tshark_debconf(ctx)
 
-    run_as_root(ctx, ["apt-get", "update"])
-    run_as_root(ctx, ["env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", *plan["apt_packages"]])
+    apt_packages = [package for package in plan["apt_packages"] if not apt_package_installed(package)]
+    if apt_packages:
+        run_as_root(ctx, ["apt-get", "update"])
+        run_as_root(ctx, ["env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y", *apt_packages])
 
     if env_exists(ctx):
         console.print(f"Conda environment '{ctx.env_name}' already exists.")
@@ -1381,6 +1565,9 @@ def install_selection(ctx: InstallerContext, catalog: tool_catalog.Catalog, sele
         ["env", f"OPENCROW_HOME={ctx.target_home}", "bash", str(ctx.root_dir / "scripts/sync_skills.sh")],
     )
 
+    if not plan["selected_tool_ids"]:
+        console.print("All selected tools were already installed; only skills/state were refreshed.", style="cyan")
+
     if plan["manual_tool_ids"]:
         console.print()
         console.print("Manual steps are still required for some full-profile tools.", style="yellow")
@@ -1390,7 +1577,7 @@ def install_selection(ctx: InstallerContext, catalog: tool_catalog.Catalog, sele
     if ctx.dry_run:
         console.print("Dry-run mode: install state was not written.")
     else:
-        save_state_as_target(ctx, catalog, selection)
+        save_state_as_target(ctx, catalog, selection_to_save)
 
     console.print()
     console.print("Bootstrap complete.", style="bold green")
@@ -1438,15 +1625,21 @@ def install(
     console.print(f"Using conda at: {ctx.conda_bin}")
 
     catalog = tool_catalog.load_catalog()
+    existing_selection = load_existing_selection(catalog)
     selected_toolboxes = [] if all_toolboxes else toolbox
     interactive_mode = should_prompt_interactively(selected_toolboxes, tool, profile, interactive)
-    selection = resolve_selection(catalog, selected_toolboxes, tool, profile, interactive_mode)
+    initial_state = state_to_interactive(existing_selection) if interactive_mode and existing_selection else None
+    requested_selection = resolve_selection(catalog, selected_toolboxes, tool, profile, interactive_mode, initial_state)
+    selection = merge_selections(existing_selection, requested_selection)
+
+    if existing_selection:
+        console.print("Existing OpenCROW install state detected; applying an incremental update.", style="cyan")
 
     if not interactive_mode:
-        warn_noninteractive_terms(catalog, selection)
+        warn_noninteractive_terms(catalog, requested_selection)
         print_summary(catalog, selection)
 
-    install_selection(ctx, catalog, selection)
+    install_selection(ctx, catalog, requested_selection, selection)
 
 
 def main() -> None:

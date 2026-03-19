@@ -5,7 +5,7 @@ description: Use the OpenCROW utility stack for shell-heavy CTF workflows. Use w
 
 # OpenCROW Utility Toolbox
 
-Use this skill when the blocker is shell ergonomics or structured-data processing rather than a challenge-specific exploit primitive. It covers the “glue” layer that makes larger CTF workflows faster: `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, and `fzf`.
+Use this skill when the blocker is shell ergonomics or structured-data processing rather than a challenge-specific exploit primitive. It covers the “glue” layer that makes larger CTF workflows faster: `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, `fzf`, and `opencrow-autosetup`.
 
 ## Quick Start
 
@@ -21,6 +21,7 @@ python ~/.codex/skills/opencrow-utility-toolbox/scripts/verify_toolkit.py
 2. Use `xxd` when you need a fast hex dump or round-trip conversion in shell pipelines.
 3. Use `tmux` or `screen` when the task benefits from persistent panes or background sessions.
 4. Use `rg` and `fzf` to navigate large workspaces or challenge bundles quickly.
+5. Use `opencrow-autosetup` to seed a standard challenge workspace with OpenCROW artifacts and launch a full-auto Codex reconnaissance pass.
 
 ## Resources
 

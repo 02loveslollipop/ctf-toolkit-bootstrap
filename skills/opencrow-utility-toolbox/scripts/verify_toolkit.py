@@ -15,6 +15,7 @@ SYSTEM_TOOLS = [
     "screen",
     "rg",
     "fzf",
+    "opencrow-autosetup",
 ]
 
 
