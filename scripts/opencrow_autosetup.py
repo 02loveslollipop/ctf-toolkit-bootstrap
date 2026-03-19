@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from opencrow_banner import maybe_print_banner
+
 
 CATEGORY_IDS: Final[tuple[str, ...]] = (
     "crypto",
@@ -905,6 +907,7 @@ def main() -> int:
 
     if args.dry_run:
         filtered_secondary = [item for item in detection.secondary if item != category]
+        maybe_print_banner()
         print(f"workspace_dir={workspace_dir}")
         print(f"output_dir={output_dir}")
         print(f"category={category}")
@@ -928,6 +931,7 @@ def main() -> int:
 
     if not command_available(args.codex_bin):
         raise SystemExit(f"Codex executable not found: {args.codex_bin}")
+    maybe_print_banner()
     seed_artifacts(
         output_dir,
         category,

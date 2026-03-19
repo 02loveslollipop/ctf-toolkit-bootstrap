@@ -1563,6 +1563,26 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
             [
                 "install",
                 "-m",
+                "644",
+                str(source_dir / "opencrow_banner.py"),
+                str(install_dir / "opencrow_banner.py"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(ROOT_DIR / "ascii_text.md"),
+                str(install_dir / "ascii_text.md"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
                 "755",
                 str(source_dir / "opencrow-autosetup"),
                 str(install_dir / "opencrow-autosetup"),
@@ -1602,6 +1622,26 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
                 "755",
                 str(source_dir / "opencrow_exploit.py"),
                 str(install_dir / "opencrow_exploit.py"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(source_dir / "opencrow_banner.py"),
+                str(install_dir / "opencrow_banner.py"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(ROOT_DIR / "ascii_text.md"),
+                str(install_dir / "ascii_text.md"),
             ],
         )
         run_as_target(
