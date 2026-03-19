@@ -28,7 +28,6 @@ Behavior:
 - The installer prints homepage and license links for every selected tool before it starts.
 - Proprietary packages marked in the catalog require an explicit terms acceptance prompt during interactive installs.
 - Install state is saved under `~/.local/share/opencrow/install-state.json`.
-- Re-running the installer detects existing managed state, keeps previously selected tools in scope, and only installs the missing delta needed for an incremental update.
 
 Interactive modes:
 
@@ -52,7 +51,7 @@ The current phase 1 implementation covers:
 - `opencrow-forensics-toolbox`: `volatility3`, `exiftool`, `foremost`
 - `opencrow-stego-toolbox`: `steghide`, `zsteg`
 - `opencrow-osint-toolbox`: `shodan`, `sherlock`, `waybackpy`
-- `opencrow-utility-toolbox`: `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, `fzf`, `opencrow-autosetup`
+- `opencrow-utility-toolbox`: `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, `fzf`
 
 Tracked as manual full-profile steps today:
 
@@ -105,7 +104,7 @@ High-level skill roles:
 - `opencrow-forensics-toolbox`: metadata extraction, memory analysis, and file carving
 - `opencrow-stego-toolbox`: hidden-data triage in media files
 - `opencrow-osint-toolbox`: public-source reconnaissance and archive lookups
-- `opencrow-utility-toolbox`: shell and workflow helpers, including the `opencrow-autosetup` Codex bootstrapper
+- `opencrow-utility-toolbox`: shell and workflow helpers
 - `minecraft-async` (`OpenCROW I/O - Minecraft Async`): asynchronous control of a local Minecraft client for CTF tasks
 - `netcat-async` (`OpenCROW I/O - Netcat Async`): persistent asynchronous TCP sessions
 - `sagemath` (`OpenCROW Runner - SageMath`): Sage-based math and cryptanalysis
@@ -126,17 +125,7 @@ bash ./scripts/install.sh --dry-run
 bash ./scripts/install.sh --profile headless
 bash ./scripts/install.sh --toolbox opencrow-crypto-toolbox --toolbox opencrow-web-toolbox --profile headless
 bash ./scripts/install.sh --tool one_gadget --tool zsteg
-bash ./scripts/install.sh --tool opencrow-autosetup --profile headless
 ```
-
-Autosetup example:
-
-```bash
-opencrow-autosetup --dry-run
-opencrow-autosetup --category pwn
-```
-
-`opencrow-autosetup` expects `DESCRIPTION.md` in the current working directory. If it is missing, the command warns and requires an explicit acknowledgment before it will continue. It seeds `AGENTS.md`, `SKILL.md`, `RECONNAISSANCE.md`, `HYPOTHESIS.md`, `CHANGELOG.md`, `findings.md`, and `writeup.md`, then launches `codex exec --full-auto` against the current directory.
 
 ## Verify
 
@@ -208,6 +197,5 @@ make smoke ENV=ctf
 - The installer still checks `conda` on `PATH` first, then common locations like `~/miniconda3` and `~/anaconda3`.
 - `minecraft-async` still relies on `python3-xlib`, which remains a base system dependency.
 - `ghidra` is downloaded under `~/.local/opt/ghidra`.
-- `opencrow-autosetup` is installed under `~/.local/opt/opencrow-autosetup` and symlinked into `~/.local/bin`.
 - `pwndbg` is installed with the upstream rootless installer.
 - The GitHub Actions workflow remains a smoke test around syntax and dry-run behavior; it does not install the full workstation in CI.
