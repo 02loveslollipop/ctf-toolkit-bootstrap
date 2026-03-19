@@ -111,6 +111,79 @@ bash ./scripts/install_headless.sh --tool one_gadget --tool zsteg
 bash ./scripts/update_headless.sh --toolbox opencrow-web-toolbox --profile headless
 ```
 
+## `opencrow-autosetup`
+
+`opencrow-autosetup` is an installed CLI utility from the utility toolbox. It seeds a challenge workspace with reconnaissance artifacts and then launches a nested `codex exec` pass that only performs challenge reconnaissance.
+
+Generated artifacts:
+
+- `AGENTS.md`
+- `SKILL.md`
+- `RECONNAISSANCE.md`
+- `HYPOTHESIS.md`
+
+Behavior:
+
+- reads `DESCRIPTION.md` when present and uses it as the challenge description seed
+- defaults to `pwn` when no stronger category signal is found
+- detects common remote connection strings such as `nc`, `ssh`, and `telnet`
+- if the challenge is a pure remote black-box target, it tells the agent to focus reconnaissance on that connection instead of unrelated local speculation
+- writes artifacts in the current directory by default, or a custom path with `--output-dir`
+- does not attempt exploitation, flag capture, or final solve validation
+- leaves `AGENTS.md` and the recon artifacts as handoff material for a future `opencrow-exploit` pass
+- runs the nested Codex agent with `danger-full-access` plus full inherited shell environment by default
+- supports `--interactive` to launch the recon pass as an interactive Codex session instead of `codex exec`
+- supports `--disable-sandbox` to launch the nested Codex run without sandboxing
+
+Examples:
+
+```bash
+opencrow-autosetup --dry-run
+opencrow-autosetup --interactive
+opencrow-autosetup --category web
+opencrow-autosetup --output-dir ./artifacts
+opencrow-autosetup --disable-sandbox
+opencrow-autosetup --ack-missing-description
+```
+
+Shell completion:
+
+- bash completion is installed at `~/.local/share/bash-completion/completions/opencrow-autosetup`
+- for the current shell session you can load it with:
+
+```bash
+source ~/.local/share/bash-completion/completions/opencrow-autosetup
+```
+
+Run without sandboxing:
+
+```bash
+opencrow-autosetup --disable-sandbox --ack-missing-description
+```
+
+## `opencrow-exploit`
+
+`opencrow-exploit` is the follow-up CLI utility for the solve phase. It reads the current workspace handoff artifacts, builds a prompt for the exploitation agent, and launches Codex in the current directory.
+
+Behavior:
+
+- reads the current workspace documents in this order when present:
+  `AGENTS.md`, `DESCRIPTION.md`, `SKILL.md`, `RECONNAISSANCE.md`, `HYPOTHESIS.md`
+- treats `AGENTS.md` as authoritative when it exists
+- defaults to an interactive Codex session for the exploitation pass
+- supports `--full-auto` to run the solve pass through `codex exec`
+- runs with `danger-full-access` plus full inherited shell environment by default
+- supports `--disable-sandbox` to launch the nested Codex run without sandboxing
+
+Examples:
+
+```bash
+opencrow-exploit
+opencrow-exploit --model gpt-5.4
+opencrow-exploit --full-auto
+opencrow-exploit --disable-sandbox
+```
+
 ## Verify
 
 Verify the saved install selection:

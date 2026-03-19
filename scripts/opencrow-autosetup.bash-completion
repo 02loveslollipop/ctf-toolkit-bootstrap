@@ -1,0 +1,59 @@
+_opencrow_autosetup() {
+  local cur prev
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  local options="--category --output-dir --no-git-history --codex-bin --model --dry-run --interactive --disable-sandbox --ack-missing-description --help -h"
+  local categories="crypto pwn reversing web forensics stego network osint misc"
+
+  case "$prev" in
+    --category)
+      COMPREPLY=($(compgen -W "$categories" -- "$cur"))
+      return 0
+      ;;
+    --output-dir)
+      compopt -o dirnames 2>/dev/null
+      COMPREPLY=($(compgen -d -- "$cur"))
+      return 0
+      ;;
+    --codex-bin)
+      COMPREPLY=($(compgen -c -- "$cur"))
+      return 0
+      ;;
+    --model)
+      COMPREPLY=()
+      return 0
+      ;;
+  esac
+
+  case "$cur" in
+    --category=*)
+      COMPREPLY=($(compgen -W "$categories" -- "${cur#--category=}"))
+      COMPREPLY=("${COMPREPLY[@]/#/--category=}")
+      return 0
+      ;;
+    --output-dir=*)
+      local dir_cur="${cur#--output-dir=}"
+      compopt -o dirnames 2>/dev/null
+      COMPREPLY=($(compgen -d -- "$dir_cur"))
+      COMPREPLY=("${COMPREPLY[@]/#/--output-dir=}")
+      return 0
+      ;;
+    --codex-bin=*)
+      local cmd_cur="${cur#--codex-bin=}"
+      COMPREPLY=($(compgen -c -- "$cmd_cur"))
+      COMPREPLY=("${COMPREPLY[@]/#/--codex-bin=}")
+      return 0
+      ;;
+  esac
+
+  if [[ "$cur" == -* ]]; then
+    COMPREPLY=($(compgen -W "$options" -- "$cur"))
+    return 0
+  fi
+
+  compopt -o dirnames 2>/dev/null
+  COMPREPLY=($(compgen -d -- "$cur"))
+}
+
+complete -F _opencrow_autosetup opencrow-autosetup

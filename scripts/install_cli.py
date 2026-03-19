@@ -1544,7 +1544,9 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
     if handler == "opencrow-autosetup":
         source_dir = ROOT_DIR / "scripts"
         install_dir = ctx.target_home / ".local/opt/opencrow-autosetup"
+        completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
         run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
+        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
         run_as_target(
             ctx,
             [
@@ -1568,10 +1570,66 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
         run_as_target(
             ctx,
             [
+                "install",
+                "-m",
+                "644",
+                str(source_dir / "opencrow-autosetup.bash-completion"),
+                str(completion_dir / "opencrow-autosetup"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
                 "ln",
                 "-sfn",
                 str(install_dir / "opencrow-autosetup"),
                 str(ctx.target_home / ".local/bin/opencrow-autosetup"),
+            ],
+        )
+        return
+    if handler == "opencrow-exploit":
+        source_dir = ROOT_DIR / "scripts"
+        install_dir = ctx.target_home / ".local/opt/opencrow-exploit"
+        completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
+        run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
+        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "755",
+                str(source_dir / "opencrow_exploit.py"),
+                str(install_dir / "opencrow_exploit.py"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "755",
+                str(source_dir / "opencrow-exploit"),
+                str(install_dir / "opencrow-exploit"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(source_dir / "opencrow-exploit.bash-completion"),
+                str(completion_dir / "opencrow-exploit"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "ln",
+                "-sfn",
+                str(install_dir / "opencrow-exploit"),
+                str(ctx.target_home / ".local/bin/opencrow-exploit"),
             ],
         )
         return

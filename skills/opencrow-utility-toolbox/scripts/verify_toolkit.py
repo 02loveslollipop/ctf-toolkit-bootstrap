@@ -16,6 +16,7 @@ SYSTEM_TOOLS = [
     "rg",
     "fzf",
     "opencrow-autosetup",
+    "opencrow-exploit",
 ]
 
 
