@@ -30,6 +30,7 @@ CATEGORY_IDS: Final[tuple[str, ...]] = (
 
 ARTIFACT_NAMES: Final[dict[str, str]] = {
     "agents": "AGENTS.md",
+    "handoff": "HANDOFF.md",
     "skill": "SKILL.md",
     "recon": "RECONNAISSANCE.md",
     "hypothesis": "HYPOTHESIS.md",
@@ -43,14 +44,16 @@ BASE_PROMPT_TEMPLATE: Final[str] = (
     '"{challenge_description}". From now one I grant you permision to do whatever it takes to get the '
     'flag, I belive in you, I know you will redeem yourself. If you need any tool, just install it. '
     "Do not search on the web for writeups, that's cheating. But you must search on the web for ways "
-    "to use some software or determine some math/optimization/code/restrictions. This pass is "
-    "reconnaissance-only: do not try to solve the challenge yet, do not craft a final exploit, do not "
-    "submit a flag, and do not brute-force the service beyond what is necessary to identify artifacts, "
-    "protocol behavior, or likely solve routes. Start checking the content of the current folder; this "
-    "is the working material for the task. For netcat use the available script except if you need to "
-    "setup an automated tool to understand a protocol, but for reconoisance use the skill. Always use "
-    "the skills as a first-tool and if you need script, always using the ctf and sage environments in "
-    "anaconda. This is a {challenge_category} challenge"
+    "to use some software or determine some math/optimization/code/restrictions. Keep updated a "
+    "changelog.md and a findings.md Update them everytime you try something, they must be objective "
+    "documents, that only contain claims that are verifiable (and how to repeat them). At the end "
+    "make a writeup.md. Start checking the content of the current folder this is the working material "
+    "for the task. For netcat use the available script except if you need to setup an automated tool "
+    "to solve it, but for reconoisance use the skill. Always use the skills as a first-tool and if "
+    "you need script, always using the ctf and sage environments in anaconda. This is a "
+    "{challenge_category} challenge use the specifc tools for this category, always try to use an "
+    "MCP/Skill first specially for initial drafting, for heavy scripts use python files and either use "
+    "the defined environments or use handlers like OpenCROW - Sage skill."
 )
 
 
@@ -289,6 +292,106 @@ rg -n "flag|ctf|challenge|port|listen|encrypt|decode" .
 - Record the evidence for the eventual category decision in `RECONNAISSANCE.md`.
 - Keep ranked hypotheses in `HYPOTHESIS.md`.
 """,
+}
+
+@dataclass(frozen=True)
+class AgentTemplateSpec:
+    workflow_block: str
+    category_insight: str
+
+
+AGENT_TEMPLATE_BASE: Final[str] = """# OpenCROW Exploit Agent
+
+Category: {category}
+
+## Core Rules
+
+- Use the reconnaissance artifacts as the starting point and keep every important claim reproducible.
+- Prefer MCP servers and skills first for initial drafting, triage, and validation before writing custom automation.
+- If heavy automation is required, write explicit Python files in the workspace and run them in `ctf` or `sage` as appropriate.
+- Keep `changelog.md`, `findings.md`, and `writeup.md` objective: every entry should describe what was tried, what was observed, and how to repeat it.
+- Only commit to the final exploit path after the constraints, assumptions, and success conditions are supported by evidence.
+
+## Preferred OpenCROW Workflows
+
+{workflow_block}
+
+## Category Insight
+
+{category_insight}
+
+## Finish Criteria
+
+- Validate the solve path end to end before treating it as final.
+- Record dead ends, restrictions, crash conditions, and fragile assumptions before moving on.
+- Recover the flag only after the exploit or solve workflow is stable and repeatable.
+"""
+
+
+AGENT_TEMPLATE_SPECS: Final[dict[str, AgentTemplateSpec]] = {
+    "crypto": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-crypto-toolbox` for quick triage with `z3`, `fpylll`, `pycryptodome`, FactorDB lookups, `hashcat`, or `john` when passwords or derived secrets are involved.
+- Move to `OpenCROW Runner - SageMath` when the path depends on finite fields, polynomial systems, lattices, ECC, modular equations, or algebraic attacks that deserve a real `.sage` or Python solver.
+- Use the utility toolbox to normalize inputs, convert encodings, and keep solver scripts small, explicit, and replayable instead of doing large ad-hoc one-liners.
+- If the challenge exposes a remote oracle or menu service, use `OpenCROW I/O - Netcat Async` or `OpenCROW I/O - SSH Async` to understand the dialogue first, then freeze the protocol into a solver script.""",
+        category_insight="""Crypto challenges usually fail when the primitive is named too early and the constraints are not catalogued first. Before committing to an attack, pin down exactly what is known, what is controllable, what leaks, and whether the weakness is algebraic, combinatorial, implementation-specific, or side-channel-like. The right workflow is usually: reconstruct the math model, test the smallest repeatable instance, then scale it with Sage or Python only after the model matches the observations.""",
+    ),
+    "pwn": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-pwn-toolbox` for `checksec`, `pwntools`, `gdb`, `pwndbg`, `patchelf`, `pwninit`, and QEMU-backed runtime setup before writing the final exploit.
+- Use `opencrow-reversing-toolbox` alongside pwn when you need `ghidra-headless`, `radare2`, `angr`, `objdump`, `ropper`, `strace`, or `ltrace` to confirm the bug class, target state, or gadget strategy.
+- For remote services, begin with `OpenCROW I/O - Netcat Async` or `OpenCROW I/O - SSH Async` to capture the actual prompts, banners, timing, and state transitions before automating them in `pwntools`.
+- Put heavy exploitation logic in a workspace Python file, keep local and remote targets switchable, and record the loader/libc/runtime assumptions that make the exploit reliable.""",
+        category_insight="""Pwn work is usually won or lost on environment control. Do not jump from “there is a crash” to “this is the exploit.” First freeze the architecture, libc/loader pairing, mitigations, call surface, memory disclosure opportunities, and the exact primitive you really control. Treat each exploit stage as a separately verifiable claim: gaining read, gaining write, defeating PIE/ASLR/canary, building code execution, and only then capturing the flag.""",
+    ),
+    "reversing": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-reversing-toolbox` for static and symbolic triage using `ghidra-headless`, `radare2`, `angr`, `capstone`, `lief`, `objdump`, `strace`, and `ltrace`.
+- Use the pwn toolbox only when execution control, patching, or process-level instrumentation becomes necessary to validate a hypothesis from static analysis.
+- Keep intermediate extractor, emulator, or patching logic in Python files under the workspace and run them from the `ctf` environment so every decoding step is reproducible.
+- Use utility helpers like `xxd`, `rg`, and `jq` to normalize blobs, diff extracted data, and index strings or metadata while you shrink the search space.""",
+        category_insight="""Reversing challenges reward disciplined narrowing of uncertainty. Before building a solver, isolate where the real decision is made: input parsing, key schedule, hidden data path, anti-debug layer, VM, or patch gate. Document what is executed versus what only looks important. The clean path is usually: map the control/data flow, prove the critical check, then automate just the essential transformation needed to extract the answer or bypass the gate.""",
+    ),
+    "web": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-web-toolbox` and the web MCP path for endpoint discovery, fuzzing, and SQLi triage before writing custom request automation.
+- Use the utility toolbox to slice configs, secrets, logs, JWTs, YAML, or JSON artifacts, and fall back to direct Python request scripts only after the request shape and target behavior are stable.
+- If traffic visibility matters, use the network toolbox to capture or inspect HTTP flows, and only escalate to broader automation once the auth model, session behavior, and routing quirks are understood.
+- Keep exploit scripts explicit about base URL, cookies, tokens, and repeatable request ordering so the final path can be reproduced without guessing hidden state.""",
+        category_insight="""Web challenges are usually about state and trust boundaries, not just raw endpoints. Before selecting an exploit path, freeze what the server trusts, what the client can forge, and where input crosses privilege, template, SQL, filesystem, or serialization boundaries. A good workflow is: enumerate routes, prove a candidate primitive with the smallest request set possible, then script the minimal repeatable exploit chain that gets you to the flag.""",
+    ),
+    "forensics": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-forensics-toolbox` and its MCP server for metadata extraction, carving, and memory-image inspection before writing custom parsers.
+- Use `exiftool`, `foremost`, and `volatility3` as the first pass, then move to the utility toolbox for indexing, filtering, hashing, timeline cleanup, and repeated artifact comparison.
+- If media files look suspicious, bring in the stego toolbox; if traffic or captures drive the artifact trail, pivot into the network toolbox instead of overloading one workflow.
+- Keep extraction scripts targeted: one artifact class, one output directory, one repeatable set of parameters per pass.""",
+        category_insight="""Forensics challenges are about provenance and interpretation, not just extraction volume. Before claiming that an artifact matters, prove where it came from, how it was derived, and why it survives alternate explanations. The right workflow is usually: inventory, carve, classify, correlate timestamps and provenance, then test the smallest interpretation that explains the recovered evidence and leads to the flag.""",
+    ),
+    "stego": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-stego-toolbox` and its MCP server for inspection and extraction attempts before writing custom decoders.
+- Pair stego work with `opencrow-forensics-toolbox` for metadata, file-structure, and carving support whenever the carrier may contain appended, nested, or containerized data.
+- Use the utility toolbox for byte-level inspection, format conversion, and quick pipeline glue; if the payload looks encrypted or encoded, hand off to the crypto toolbox instead of forcing the stego path too long.
+- Keep extraction attempts parameterized and reproducible: exact carrier file, passphrase candidates, bit-plane assumptions, and output paths should all be explicit.""",
+        category_insight="""Stego challenges often punish premature brute force. First identify what kind of hiding is plausible for the carrier: metadata abuse, appended payloads, channel-plane manipulation, palette tricks, transform-domain hiding, or nested archives. The practical workflow is: inspect structure, narrow likely hiding mechanisms, test focused extraction hypotheses, and only then escalate to heavier decoding or passphrase search when the evidence supports it.""",
+    ),
+    "network": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-network-toolbox` for `tshark`, `tcpdump`, `scapy`, `nmap`, `nc`, and `socat`, and use the async I/O skills for persistent live sessions when the challenge exposes an interactive service.
+- Use `OpenCROW I/O - Netcat Async` or `OpenCROW I/O - SSH Async` to freeze banners, prompts, packet cadence, and state transitions before writing protocol automation.
+- If the service turns out to be a web or binary target, pivot into the corresponding toolbox once the protocol boundary is understood instead of keeping everything in raw socket scripts.
+- Keep packet parsers and protocol automation as explicit workspace Python files with clear assumptions about framing, encoding, and retry behavior.""",
+        category_insight="""Network challenges are rarely about “just send bytes until it works.” First prove the protocol: framing, state machine, timing, negotiated features, compression/encoding, and what constitutes success or reset. The best workflow is: capture or observe, label the real message boundaries, replay the smallest valid interaction, and only then script the exploit or decoder around the confirmed protocol semantics.""",
+    ),
+    "osint": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-osint-toolbox` and its MCP server for username, archive, and Shodan-backed pivots before writing custom scraping logic.
+- Use the utility toolbox to normalize handles, domains, timestamps, and archival outputs, and only browse for factual source validation or tool-usage help, never challenge writeups.
+- If archived web content, leaked metadata, or downloaded files become central, pivot into the web or forensics workflows instead of keeping everything in a generic OSINT loop.
+- Keep every query, pivot, and source URL reproducible in the workspace documents so the final attribution or correlation path can be replayed end to end.""",
+        category_insight="""OSINT challenges depend on disciplined correlation. Before locking onto a person, host, or alias, prove why the evidence belongs to the same entity and what would falsify that linkage. The strong workflow is: enumerate candidate pivots, confirm identity or infrastructure links with at least one independent signal, then build the minimal attribution chain that explains the challenge material and leads to the flag.""",
+    ),
+    "misc": AgentTemplateSpec(
+        workflow_block="""- Start with `opencrow-utility-toolbox` to inventory the workspace, normalize artifacts, and identify which specialized toolbox should own each subproblem.
+- Prefer MCP servers and skills for the first pass, then split the challenge into smaller tracks and route each one into crypto, pwn, reversing, web, forensics, stego, network, or OSINT as the evidence dictates.
+- Keep custom automation modular: one script per subproblem, explicit inputs and outputs, and clear notes about which toolbox assumptions each script depends on.
+- Revisit the category label whenever new evidence shows the challenge is mixed, mislabeled, or deliberately cross-domain.""",
+        category_insight="""Misc challenges are usually mixed challenges in disguise. The key is not to hunt for one magic tool, but to decompose the problem into verifiable subproblems and route each through the right workflow. Treat the category label as provisional until the evidence stabilizes, and prefer small, testable steps over a monolithic attempt that mixes too many assumptions at once.""",
+    ),
 }
 
 
@@ -611,6 +714,17 @@ def write_if_missing(path: Path, content: str) -> None:
 
 
 def agents_template(
+    category: str,
+) -> str:
+    spec = AGENT_TEMPLATE_SPECS[category]
+    return AGENT_TEMPLATE_BASE.format(
+        category=category,
+        workflow_block=spec.workflow_block,
+        category_insight=spec.category_insight,
+    )
+
+
+def handoff_template(
     artifact_dir: Path,
     category: str,
     include_git_history: bool,
@@ -628,12 +742,12 @@ def agents_template(
         if black_box_only
         else "- If remote connection details exist, verify and document them alongside the local artifact review."
     )
-    return f"""# OpenCROW Autosetup Agent Contract
+    return f"""# OpenCROW Recon Handoff
 
 ## Scope
 
 - Workspace root: `{artifact_dir}`
-- Primary category: `{category}`
+- Current best category guess: `{category}`
 - Inspect the entire current tree recursively, including ignored files, unless a path is unreadable or access is denied.
 - {git_line}
 - Documented connection targets:
@@ -645,15 +759,17 @@ def agents_template(
 - Use `RECONNAISSANCE.md` for the full inventory, technology map, category evidence, and open questions.
 - Use `HYPOTHESIS.md` for ranked attack ideas, contradictions, and likely next validation steps.
 - Use `SKILL.md` as the category-specific first-response playbook for the follow-up exploit pass.
+- At the end of this recon pass, choose the final challenge category and write the matching category-only agent prompt into `AGENTS.md`.
+- Keep `HANDOFF.md` for operational contract details, TODOs, unresolved questions, and exploit handoff notes.
 - This autosetup run is reconnaissance-only. Do not attempt exploitation, flag submission, or final solve validation.
-- Leave `AGENTS.md` as the handoff contract for the future `opencrow-exploit` pass.
 
 ## Workflow
 
 1. Read `DESCRIPTION.md` if present.
 2. Inspect the full tree before making strong claims.
 3. Update the markdown artifacts as soon as new evidence changes the reconstruction of the challenge.
-4. Prefer OpenCROW skills as the first tool layer, then use scripts in the `ctf` or `sage` conda environments when needed for reconnaissance only.
+4. At the end, select the final category-specific `AGENTS.md` template and copy it into the workspace.
+5. Prefer OpenCROW skills as the first tool layer, then use scripts in the `ctf` or `sage` conda environments when needed for reconnaissance only.
 """
 
 
@@ -752,6 +868,10 @@ def build_prompt(
         challenge_category=category.upper(),
     )
     artifact_list = "\n".join(f"- `{name}`" for name in ARTIFACT_NAMES.values())
+    agent_templates = "\n\n".join(
+        f"## {template_category.upper()}\n\n{agents_template(template_category)}"
+        for template_category in CATEGORY_IDS
+    )
     filtered_secondary = [item for item in detection.secondary if item != category]
     secondary = ", ".join(filtered_secondary[:3]) if filtered_secondary else "none"
     connection_lines = "\n".join(render_connection_lines(connection_targets))
@@ -773,6 +893,11 @@ def build_prompt(
     return (
         f"{base_prompt}\n\n"
         "Follow this additional OpenCROW autosetup contract exactly.\n\n"
+        "This pass is reconnaissance-only. Do not try to solve the challenge yet, do not craft a final exploit, "
+        "do not submit a flag, and do not brute-force the service beyond what is necessary to identify artifacts, "
+        "protocol behavior, or likely solve routes.\n"
+        "For this reconnaissance pass, do not create or maintain `changelog.md`, `findings.md`, or `writeup.md`; "
+        "the solve-phase agent will own those documents later.\n\n"
         "Write or maintain the following workspace artifacts in the selected output directory:\n"
         f"{artifact_list}\n\n"
         "Artifact requirements:\n"
@@ -780,7 +905,8 @@ def build_prompt(
         "notable artifacts, category evidence, git-history findings when relevant, and open questions.\n"
         "- `HYPOTHESIS.md`: ranked hypotheses, supporting evidence, contradictions, and likely next validation steps.\n"
         "- `SKILL.md`: category-specific first-response playbook. Use the seeded template as the base and improve it.\n"
-        "- `AGENTS.md`: keep the workspace contract up to date for the future `opencrow-exploit` pass.\n\n"
+        "- `HANDOFF.md`: maintain the operational handoff contract, unresolved questions, and TODOs for the future `opencrow-exploit` pass.\n"
+        "- `AGENTS.md`: at the end of reconnaissance, choose the final challenge category and copy the matching category-only exploit-agent template into this file.\n\n"
         f"Primary category: `{category}`.\n"
         f"Secondary candidate categories: {secondary}.\n"
         "Detected connection targets:\n"
@@ -791,6 +917,9 @@ def build_prompt(
         f"All artifact writes must stay inside: `{output_dir}`.\n"
         "Inspect the full current directory recursively, including ignored files when readable.\n"
         "This run is reconnaissance-only. Do not attempt exploitation, final payload development, or flag capture.\n"
+        "At the end of the recon pass, decide the final category and write the matching category-specific exploit-agent prompt into `AGENTS.md`.\n"
+        "Use the following category-specific `AGENTS.md` templates as the source text, choosing exactly one final template:\n\n"
+        f"{agent_templates}\n\n"
         "Prefer OpenCROW skills as the first tool layer. When scripting is needed, use the `ctf` and `sage` conda environments for reconnaissance only.\n"
         "Do not browse for challenge writeups.\n"
     )
@@ -856,8 +985,8 @@ def seed_artifacts(
 ) -> None:
     ensure_directory(output_dir)
     write_if_missing(
-        output_dir / ARTIFACT_NAMES["agents"],
-        agents_template(output_dir, category, include_git_history, connection_targets, black_box_only),
+        output_dir / ARTIFACT_NAMES["handoff"],
+        handoff_template(output_dir, category, include_git_history, connection_targets, black_box_only),
     )
     write_if_missing(output_dir / ARTIFACT_NAMES["skill"], SKILL_TEMPLATES[category])
     write_if_missing(

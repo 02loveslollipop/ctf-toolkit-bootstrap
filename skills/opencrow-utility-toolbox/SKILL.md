@@ -21,8 +21,8 @@ python ~/.codex/skills/opencrow-utility-toolbox/scripts/verify_toolkit.py
 2. Use `xxd` when you need a fast hex dump or round-trip conversion in shell pipelines.
 3. Use `tmux` or `screen` when the task benefits from persistent panes or background sessions.
 4. Use `rg` and `fzf` to navigate large workspaces or challenge bundles quickly.
-5. Use `opencrow-autosetup` to seed a standard challenge workspace with OpenCROW reconnaissance artifacts and launch a reconnaissance-only Codex pass.
-6. Use `opencrow-exploit` to launch the follow-up Codex solve pass from the handoff artifacts created by autosetup.
+5. Use `opencrow-autosetup` to seed a standard challenge workspace with OpenCROW reconnaissance artifacts, maintain `HANDOFF.md`, and launch a reconnaissance-only Codex pass that selects the final category-specific `AGENTS.md`.
+6. Use `opencrow-exploit` to launch the follow-up Codex solve pass from the `AGENTS.md` and `HANDOFF.md` artifacts created by autosetup.
 
 ## Resources
 

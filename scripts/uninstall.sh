@@ -198,6 +198,22 @@ uninstall_direct_handler() {
       run_as_target rm -f "$TARGET_HOME/.local/share/bash-completion/completions/opencrow-exploit"
       run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-exploit"
       ;;
+    opencrow-stego-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-stego-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-stego-mcp"
+      ;;
+    opencrow-forensics-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-forensics-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-forensics-mcp"
+      ;;
+    opencrow-osint-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-osint-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-osint-mcp"
+      ;;
+    opencrow-web-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-web-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-web-mcp"
+      ;;
     *)
       echo "Unknown direct uninstall handler: $handler" >&2
       exit 2

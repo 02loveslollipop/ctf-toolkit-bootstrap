@@ -10,6 +10,7 @@ import shutil
 SYSTEM_TOOLS = [
     "steghide",
     "zsteg",
+    "opencrow-stego-mcp",
 ]
 
 

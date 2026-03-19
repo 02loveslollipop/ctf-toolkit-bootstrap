@@ -27,8 +27,18 @@ jobs:
           bash -n scripts/uninstall.sh
           bash -n scripts/sync_skills.sh
           bash -n scripts/remove_skills.sh
+          bash -n scripts/opencrow-stego-mcp
+          bash -n scripts/opencrow-forensics-mcp
+          bash -n scripts/opencrow-osint-mcp
+          bash -n scripts/opencrow-web-mcp
           python3 -m py_compile scripts/tool_catalog.py
           python3 -m py_compile scripts/install_cli.py
+          python3 -m py_compile scripts/check_mcp_server.py
+          python3 -m py_compile scripts/opencrow_mcp_core.py
+          python3 -m py_compile scripts/opencrow_stego_mcp.py
+          python3 -m py_compile scripts/opencrow_forensics_mcp.py
+          python3 -m py_compile scripts/opencrow_osint_mcp.py
+          python3 -m py_compile scripts/opencrow_web_mcp.py
 
       - name: Dry-run installer
         run: bash scripts/install_headless.sh --env ctf --dry-run
@@ -88,3 +98,10 @@ jobs:
           python3 "$HOME/.codex/skills/opencrow-stego-toolbox/scripts/verify_toolkit.py"
           python3 "$HOME/.codex/skills/opencrow-utility-toolbox/scripts/verify_toolkit.py"
           python3 "$HOME/.codex/skills/opencrow-web-toolbox/scripts/verify_toolkit.py"
+
+      - name: Probe first-wave MCP servers
+        run: |
+          python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-stego-mcp"
+          python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-forensics-mcp"
+          python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-osint-mcp"
+          python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-web-mcp"

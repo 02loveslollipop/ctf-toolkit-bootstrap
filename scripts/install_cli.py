@@ -1356,6 +1356,78 @@ def write_target_executable(ctx: InstallerContext, path: Path, content: str) -> 
     )
 
 
+def install_opencrow_python_command(
+    ctx: InstallerContext,
+    *,
+    install_name: str,
+    python_script: str,
+    launcher_script: str,
+    support_files: list[str] | None = None,
+    completion_script: str | None = None,
+) -> None:
+    source_dir = ROOT_DIR / "scripts"
+    install_dir = ctx.target_home / f".local/opt/{install_name}"
+    completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
+    run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
+    run_as_target(ctx, ["mkdir", "-p", str(ctx.target_home / ".local/bin")])
+
+    run_as_target(
+        ctx,
+        [
+            "install",
+            "-m",
+            "755",
+            str(source_dir / python_script),
+            str(install_dir / python_script),
+        ],
+    )
+    for support_file in support_files or []:
+        source_path = source_dir / support_file
+        if not source_path.exists():
+            source_path = ROOT_DIR / support_file
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(source_path),
+                str(install_dir / support_file),
+            ],
+        )
+    run_as_target(
+        ctx,
+        [
+            "install",
+            "-m",
+            "755",
+            str(source_dir / launcher_script),
+            str(install_dir / launcher_script),
+        ],
+    )
+    if completion_script is not None:
+        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(source_dir / completion_script),
+                str(completion_dir / install_name),
+            ],
+        )
+    run_as_target(
+        ctx,
+        [
+            "ln",
+            "-sfn",
+            str(install_dir / launcher_script),
+            str(ctx.target_home / f".local/bin/{install_name}"),
+        ],
+    )
+
+
 def save_state_as_target(ctx: InstallerContext, catalog: tool_catalog.Catalog, selection: dict[str, object]) -> None:
     payload = {
         "env_name": ctx.env_name,
@@ -1543,135 +1615,59 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
         )
         return
     if handler == "opencrow-autosetup":
-        source_dir = ROOT_DIR / "scripts"
-        install_dir = ctx.target_home / ".local/opt/opencrow-autosetup"
-        completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
-        run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
-        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
-        run_as_target(
+        install_opencrow_python_command(
             ctx,
-            [
-                "install",
-                "-m",
-                "755",
-                str(source_dir / "opencrow_autosetup.py"),
-                str(install_dir / "opencrow_autosetup.py"),
-            ],
-        )
-        run_as_target(
-            ctx,
-            [
-                "install",
-                "-m",
-                "644",
-                str(source_dir / "opencrow_banner.py"),
-                str(install_dir / "opencrow_banner.py"),
-            ],
-        )
-        run_as_target(
-            ctx,
-            [
-                "install",
-                "-m",
-                "644",
-                str(ROOT_DIR / "ascii_text.md"),
-                str(install_dir / "ascii_text.md"),
-            ],
-        )
-        run_as_target(
-            ctx,
-            [
-                "install",
-                "-m",
-                "755",
-                str(source_dir / "opencrow-autosetup"),
-                str(install_dir / "opencrow-autosetup"),
-            ],
-        )
-        run_as_target(
-            ctx,
-            [
-                "install",
-                "-m",
-                "644",
-                str(source_dir / "opencrow-autosetup.bash-completion"),
-                str(completion_dir / "opencrow-autosetup"),
-            ],
-        )
-        run_as_target(
-            ctx,
-            [
-                "ln",
-                "-sfn",
-                str(install_dir / "opencrow-autosetup"),
-                str(ctx.target_home / ".local/bin/opencrow-autosetup"),
-            ],
+            install_name="opencrow-autosetup",
+            python_script="opencrow_autosetup.py",
+            launcher_script="opencrow-autosetup",
+            support_files=["opencrow_banner.py", "ascii_text.md"],
+            completion_script="opencrow-autosetup.bash-completion",
         )
         return
     if handler == "opencrow-exploit":
-        source_dir = ROOT_DIR / "scripts"
-        install_dir = ctx.target_home / ".local/opt/opencrow-exploit"
-        completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
-        run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
-        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
-        run_as_target(
+        install_opencrow_python_command(
             ctx,
-            [
-                "install",
-                "-m",
-                "755",
-                str(source_dir / "opencrow_exploit.py"),
-                str(install_dir / "opencrow_exploit.py"),
-            ],
+            install_name="opencrow-exploit",
+            python_script="opencrow_exploit.py",
+            launcher_script="opencrow-exploit",
+            support_files=["opencrow_banner.py", "ascii_text.md"],
+            completion_script="opencrow-exploit.bash-completion",
         )
-        run_as_target(
+        return
+    if handler == "opencrow-stego-mcp":
+        install_opencrow_python_command(
             ctx,
-            [
-                "install",
-                "-m",
-                "644",
-                str(source_dir / "opencrow_banner.py"),
-                str(install_dir / "opencrow_banner.py"),
-            ],
+            install_name="opencrow-stego-mcp",
+            python_script="opencrow_stego_mcp.py",
+            launcher_script="opencrow-stego-mcp",
+            support_files=["opencrow_mcp_core.py"],
         )
-        run_as_target(
+        return
+    if handler == "opencrow-forensics-mcp":
+        install_opencrow_python_command(
             ctx,
-            [
-                "install",
-                "-m",
-                "644",
-                str(ROOT_DIR / "ascii_text.md"),
-                str(install_dir / "ascii_text.md"),
-            ],
+            install_name="opencrow-forensics-mcp",
+            python_script="opencrow_forensics_mcp.py",
+            launcher_script="opencrow-forensics-mcp",
+            support_files=["opencrow_mcp_core.py"],
         )
-        run_as_target(
+        return
+    if handler == "opencrow-osint-mcp":
+        install_opencrow_python_command(
             ctx,
-            [
-                "install",
-                "-m",
-                "755",
-                str(source_dir / "opencrow-exploit"),
-                str(install_dir / "opencrow-exploit"),
-            ],
+            install_name="opencrow-osint-mcp",
+            python_script="opencrow_osint_mcp.py",
+            launcher_script="opencrow-osint-mcp",
+            support_files=["opencrow_mcp_core.py"],
         )
-        run_as_target(
+        return
+    if handler == "opencrow-web-mcp":
+        install_opencrow_python_command(
             ctx,
-            [
-                "install",
-                "-m",
-                "644",
-                str(source_dir / "opencrow-exploit.bash-completion"),
-                str(completion_dir / "opencrow-exploit"),
-            ],
-        )
-        run_as_target(
-            ctx,
-            [
-                "ln",
-                "-sfn",
-                str(install_dir / "opencrow-exploit"),
-                str(ctx.target_home / ".local/bin/opencrow-exploit"),
-            ],
+            install_name="opencrow-web-mcp",
+            python_script="opencrow_web_mcp.py",
+            launcher_script="opencrow-web-mcp",
+            support_files=["opencrow_mcp_core.py"],
         )
         return
     raise typer.BadParameter(f"Unknown direct install handler: {handler}")

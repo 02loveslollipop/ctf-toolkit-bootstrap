@@ -4,6 +4,8 @@ Open Codex Runtime for Offensive Workflows.
 
 OpenCROW bootstraps a CTF workstation around an existing Anaconda or Miniconda installation, then syncs the repo-managed Codex skills into `~/.codex/skills`. The current implementation is catalog-driven, stateful, backed by a Python Typer CLI, and able to install a broad headless toolbox set plus most full-profile tools directly.
 
+The first MCP migration wave is also in progress. OpenCROW now ships provider-neutral stdio MCP servers for the smaller toolboxes, with the shared contract defined in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
+
 ## Requirements
 
 - An existing Anaconda or Miniconda installation
@@ -56,6 +58,13 @@ The current phase 1 implementation covers:
 - `opencrow-stego-toolbox`: `steghide`, `zsteg`
 - `opencrow-osint-toolbox`: `shodan`, `sherlock`, `waybackpy`
 - `opencrow-utility-toolbox`: `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, `fzf`
+
+Wave 1 MCP servers:
+
+- `opencrow-stego-mcp`
+- `opencrow-forensics-mcp`
+- `opencrow-osint-mcp`
+- `opencrow-web-mcp`
 
 Tracked as manual full-profile steps today:
 
@@ -114,6 +123,17 @@ High-level skill roles:
 - `sagemath` (`OpenCROW Runner - SageMath`): Sage-based math and cryptanalysis
 - `ssh-async` (`OpenCROW I/O - SSH Async`): persistent asynchronous SSH sessions
 
+## MCP Architecture
+
+OpenCROW toolbox MCP servers follow one shared contract:
+
+- one stdio MCP server per toolbox
+- provider-neutral typed tools, not Codex-specific shell wrappers
+- common tools on every server: `toolbox_info`, `toolbox_verify`, `toolbox_capabilities`
+- shared response envelope with `ok`, `summary`, `toolbox`, `operation`, `inputs`, `artifacts`, `observations`, `command`, `stdout`, `stderr`, `exit_code`, and `next_steps`
+
+Architecture details and contract rules live in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
+
 ## Install
 
 From the repo root:
@@ -139,10 +159,11 @@ bash ./scripts/update_headless.sh --toolbox opencrow-web-toolbox --profile headl
 
 Generated artifacts:
 
-- `AGENTS.md`
+- `HANDOFF.md`
 - `SKILL.md`
 - `RECONNAISSANCE.md`
 - `HYPOTHESIS.md`
+- `AGENTS.md` selected and written by the reconnaissance agent at the end of the pass
 
 Behavior:
 
@@ -152,7 +173,8 @@ Behavior:
 - if the challenge is a pure remote black-box target, it tells the agent to focus reconnaissance on that connection instead of unrelated local speculation
 - writes artifacts in the current directory by default, or a custom path with `--output-dir`
 - does not attempt exploitation, flag capture, or final solve validation
-- leaves `AGENTS.md` and the recon artifacts as handoff material for a future `opencrow-exploit` pass
+- writes the operational contract, TODOs, and unresolved questions to `HANDOFF.md`
+- makes the recon agent choose the final challenge category and write the matching category-specific `AGENTS.md` at the end of the pass
 - runs the nested Codex agent with `danger-full-access` plus full inherited shell environment by default
 - supports `--interactive` to launch the recon pass as an interactive Codex session instead of `codex exec`
 - supports `--disable-sandbox` to launch the nested Codex run without sandboxing
@@ -190,8 +212,9 @@ opencrow-autosetup --disable-sandbox --ack-missing-description
 Behavior:
 
 - reads the current workspace documents in this order when present:
-  `AGENTS.md`, `DESCRIPTION.md`, `SKILL.md`, `RECONNAISSANCE.md`, `HYPOTHESIS.md`
-- treats `AGENTS.md` as authoritative when it exists
+  `AGENTS.md`, `HANDOFF.md`, `DESCRIPTION.md`, `SKILL.md`, `RECONNAISSANCE.md`, `HYPOTHESIS.md`
+- treats `AGENTS.md` as the authoritative category-specific exploit contract when it exists
+- treats `HANDOFF.md` as the operational contract and exploit TODO list from reconnaissance
 - defaults to an interactive Codex session for the exploitation pass
 - supports `--full-auto` to run the solve pass through `codex exec`
 - runs with `danger-full-access` plus full inherited shell environment by default
