@@ -846,6 +846,17 @@
       "license_url": "https://github.com/junegunn/fzf/blob/master/LICENSE",
       "install": {"kind": "apt", "package": "fzf"},
       "verify": {"kind": "command", "value": "fzf"}
+    },
+    {
+      "id": "opencrow-autosetup",
+      "display_name": "opencrow-autosetup",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Bootstrap a full-auto Codex challenge reconnaissance pass in the current workspace.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://github.com/02loveslollipop/OpenCROW",
+      "install": {"kind": "direct", "handler": "opencrow-autosetup"},
+      "verify": {"kind": "command", "value": "opencrow-autosetup"}
     }
   ]
 }
