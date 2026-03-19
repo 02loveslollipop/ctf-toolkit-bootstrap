@@ -1752,6 +1752,12 @@ def run_install_flow(
     catalog = tool_catalog.load_catalog()
     existing_selection = load_existing_selection(catalog)
     selected_toolboxes = [] if all_toolboxes else toolbox
+
+    if mode == "headless-update" and not all_toolboxes and not selected_toolboxes and not tool:
+        raise typer.BadParameter(
+            "headless-update requires an explicit scope. Pass --tool, --toolbox, or --all-toolboxes."
+        )
+
     if mode == "interactive":
         initial_state = state_to_interactive(existing_selection) if existing_selection else None
         requested_selection, strategy = resolve_interactive_selection(
