@@ -35,6 +35,8 @@ ARTIFACT_NAMES = {
     "writeup": "writeup.md",
 }
 
+IGNORED_METADATA_DIRS = {".git", ".hg", ".svn"}
+
 BASE_PROMPT_TEMPLATE = (
     'You are the most wanted hacker in the world being actively searched by the Interpol and FBI, '
     'and you were given the chance to redeem yourself to the world by solving this challenge: '
@@ -323,6 +325,15 @@ def read_description_file(path: Path) -> str | None:
     return sanitize_description(path.read_text(encoding="utf-8", errors="replace"))
 
 
+def iter_workspace_paths(root: Path) -> list[Path]:
+    paths: list[Path] = []
+    for path in root.rglob("*"):
+        if any(part in IGNORED_METADATA_DIRS for part in path.parts):
+            continue
+        paths.append(path)
+    return sorted(paths)
+
+
 def extract_connection_targets(description: str) -> list[ConnectionTarget]:
     targets: list[ConnectionTarget] = []
     seen: set[tuple[str, str, str | None, str]] = set()
@@ -410,7 +421,7 @@ def has_local_material(root: Path) -> bool:
         ".txt",
         ".bin",
     }
-    for path in root.rglob("*"):
+    for path in iter_workspace_paths(root):
         if not path.is_file():
             continue
         if path.name in ignorable:
@@ -463,7 +474,7 @@ def collect_text_hints(root: Path) -> list[tuple[Path, str]]:
         ".sh",
         ".dockerfile",
     }
-    for path in sorted(root.rglob("*")):
+    for path in iter_workspace_paths(root):
         if not path.is_file():
             continue
         if path.name in ARTIFACT_NAMES.values():
@@ -504,7 +515,7 @@ def detect_category(root: Path) -> DetectionResult:
         "osint": ["username", "domain", "archive", "social", "whois", "osint", "wayback", "shodan"],
     }
     low_names = []
-    for path in sorted(root.rglob("*")):
+    for path in iter_workspace_paths(root):
         if not path.exists():
             continue
         rel = path.relative_to(root)
