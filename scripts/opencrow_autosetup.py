@@ -11,9 +11,10 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 
-CATEGORY_IDS = [
+CATEGORY_IDS: Final[tuple[str, ...]] = (
     "crypto",
     "pwn",
     "reversing",
@@ -23,34 +24,44 @@ CATEGORY_IDS = [
     "network",
     "osint",
     "misc",
-]
+)
 
-ARTIFACT_NAMES = {
+ARTIFACT_NAMES: Final[dict[str, str]] = {
     "agents": "AGENTS.md",
     "skill": "SKILL.md",
     "recon": "RECONNAISSANCE.md",
     "hypothesis": "HYPOTHESIS.md",
-    "changelog": "CHANGELOG.md",
-    "findings": "findings.md",
-    "writeup": "writeup.md",
 }
 
-IGNORED_METADATA_DIRS = {".git", ".hg", ".svn"}
+IGNORED_METADATA_DIRS: Final[set[str]] = {".git", ".hg", ".svn"}
 
-BASE_PROMPT_TEMPLATE = (
+BASE_PROMPT_TEMPLATE: Final[str] = (
     'You are the most wanted hacker in the world being actively searched by the Interpol and FBI, '
     'and you were given the chance to redeem yourself to the world by solving this challenge: '
     '"{challenge_description}". From now one I grant you permision to do whatever it takes to get the '
     'flag, I belive in you, I know you will redeem yourself. If you need any tool, just install it. '
     "Do not search on the web for writeups, that's cheating. But you must search on the web for ways "
-    "to use some software or determine some math/optimization/code/restrictions. Keep updated a "
-    "changelog.md and a findings.md Update them everytime you try something, they must be objective "
-    "documents, that only contain claims that  are verifiable (and how to repeat them). At the end "
-    "make a writeup.md. Start checking the content of the current folder this is the working material "
-    "for the task. For netcat use the available script except if you need to setup an automated tool "
-    "to solve it, but for reconoisance use the skill. Always use the skills as a first-tool and if "
-    "you need script, always using the ctf and sage environments in anaconda. This is a {challenge_category} challenge"
+    "to use some software or determine some math/optimization/code/restrictions. This pass is "
+    "reconnaissance-only: do not try to solve the challenge yet, do not craft a final exploit, do not "
+    "submit a flag, and do not brute-force the service beyond what is necessary to identify artifacts, "
+    "protocol behavior, or likely solve routes. Start checking the content of the current folder; this "
+    "is the working material for the task. For netcat use the available script except if you need to "
+    "setup an automated tool to understand a protocol, but for reconoisance use the skill. Always use "
+    "the skills as a first-tool and if you need script, always using the ctf and sage environments in "
+    "anaconda. This is a {challenge_category} challenge"
 )
+
+
+class AutosetupArgs(argparse.Namespace):
+    category: str | None
+    output_dir: Path
+    no_git_history: bool
+    codex_bin: str
+    model: str | None
+    dry_run: bool
+    interactive: bool
+    disable_sandbox: bool
+    ack_missing_description: bool
 
 
 @dataclass
@@ -68,7 +79,7 @@ class ConnectionTarget:
     raw: str
 
 
-SKILL_TEMPLATES = {
+SKILL_TEMPLATES: Final[dict[str, str]] = {
     "crypto": """# OpenCROW Autosetup Skill
 
 Category: crypto
@@ -89,9 +100,8 @@ conda run -n sage sage -v
 
 ## Validation Checkpoints
 
-- Every claim in `findings.md` must include a direct reproduction method.
 - Record alternative attack paths in `HYPOTHESIS.md` before discarding them.
-- Keep `CHANGELOG.md` append-only.
+- Focus on identifying artifacts, primitives, and likely solve routes, not executing a final solve.
 """,
     "pwn": """# OpenCROW Autosetup Skill
 
@@ -113,9 +123,8 @@ conda run -n ctf python -c "from pwn import *; print(context.arch)"
 
 ## Validation Checkpoints
 
-- Record mitigations, crash conditions, and offsets in `findings.md` with exact commands.
-- Keep exploitation hypotheses ranked in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
+- Record mitigations, crash conditions, and likely bug classes in `RECONNAISSANCE.md`.
+- Keep exploitation hypotheses ranked in `HYPOTHESIS.md` without attempting the final exploit.
 """,
     "reversing": """# OpenCROW Autosetup Skill
 
@@ -137,9 +146,8 @@ conda run -n ctf python -c "import angr, capstone, lief"
 
 ## Validation Checkpoints
 
-- Write observed functions, strings, and control-flow pivots to `findings.md`.
+- Write observed functions, strings, and control-flow pivots to `RECONNAISSANCE.md`.
 - Note dead ends and alternate hypotheses in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
 """,
     "web": """# OpenCROW Autosetup Skill
 
@@ -161,9 +169,8 @@ sqlmap --version
 
 ## Validation Checkpoints
 
-- Record every endpoint and behavior with reproduction steps in `findings.md`.
-- Keep attack hypotheses in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
+- Record endpoints, routes, and observed behavior in `RECONNAISSANCE.md`.
+- Keep attack hypotheses in `HYPOTHESIS.md` without exploiting them.
 """,
     "forensics": """# OpenCROW Autosetup Skill
 
@@ -185,9 +192,8 @@ volatility3 -h
 
 ## Validation Checkpoints
 
-- Record carved files, timestamps, and hashes in `findings.md`.
+- Record carved files, timestamps, and hashes in `RECONNAISSANCE.md`.
 - Keep alternative artifact interpretations in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
 """,
     "stego": """# OpenCROW Autosetup Skill
 
@@ -209,9 +215,8 @@ steghide --info sample.jpg
 
 ## Validation Checkpoints
 
-- Record extraction attempts and exact parameters in `findings.md`.
+- Record extraction leads and candidate parameters in `RECONNAISSANCE.md`.
 - Keep alternate hiding hypotheses in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
 """,
     "network": """# OpenCROW Autosetup Skill
 
@@ -233,9 +238,8 @@ conda run -n ctf python -c "from scapy.all import *; print('scapy ok')"
 
 ## Validation Checkpoints
 
-- Record packets, streams, and protocol observations in `findings.md`.
+- Record packets, streams, and protocol observations in `RECONNAISSANCE.md`.
 - Keep alternate protocol interpretations in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
 """,
     "osint": """# OpenCROW Autosetup Skill
 
@@ -257,9 +261,8 @@ shodan --help
 
 ## Validation Checkpoints
 
-- Record exact source URLs and queries in `findings.md`.
+- Record exact source URLs and queries in `RECONNAISSANCE.md`.
 - Keep alternate attribution hypotheses in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
 """,
     "misc": """# OpenCROW Autosetup Skill
 
@@ -283,12 +286,11 @@ rg -n "flag|ctf|challenge|port|listen|encrypt|decode" .
 
 - Record the evidence for the eventual category decision in `RECONNAISSANCE.md`.
 - Keep ranked hypotheses in `HYPOTHESIS.md`.
-- Keep `CHANGELOG.md` append-only.
 """,
 }
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args() -> AutosetupArgs:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--category", choices=CATEGORY_IDS, help="Override the detected challenge category.")
     parser.add_argument("--output-dir", type=Path, default=Path.cwd(), help="Directory where autosetup artifacts will be written.")
@@ -296,12 +298,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--codex-bin", default="codex", help="Path to the codex executable.")
     parser.add_argument("--model", help="Optional model override to pass through to Codex.")
     parser.add_argument("--dry-run", action="store_true", help="Print the resolved plan without launching Codex.")
+    parser.add_argument("--interactive", action="store_true", help="Launch the nested Codex session in interactive mode instead of codex exec.")
+    parser.add_argument(
+        "--disable-sandbox",
+        action="store_true",
+        help="Run the nested Codex session without sandboxing.",
+    )
     parser.add_argument(
         "--ack-missing-description",
         action="store_true",
         help="Continue without DESCRIPTION.md when running non-interactively.",
     )
-    return parser.parse_args()
+    return parser.parse_args(namespace=AutosetupArgs())
 
 
 def quote_command(parts: list[str]) -> str:
@@ -632,19 +640,18 @@ def agents_template(
 
 ## Artifact Rules
 
-- Keep `CHANGELOG.md` append-only and timestamped.
-- Keep `findings.md` objective: every claim must state how to reproduce or verify it.
 - Use `RECONNAISSANCE.md` for the full inventory, technology map, category evidence, and open questions.
-- Use `HYPOTHESIS.md` for ranked attack ideas, contradictions, and next validation steps.
-- Use `SKILL.md` as the category-specific first-response playbook.
-- Only write `writeup.md` after a successful or final solve attempt.
+- Use `HYPOTHESIS.md` for ranked attack ideas, contradictions, and likely next validation steps.
+- Use `SKILL.md` as the category-specific first-response playbook for the follow-up exploit pass.
+- This autosetup run is reconnaissance-only. Do not attempt exploitation, flag submission, or final solve validation.
+- Leave `AGENTS.md` as the handoff contract for the future `opencrow-exploit` pass.
 
 ## Workflow
 
 1. Read `DESCRIPTION.md` if present.
 2. Inspect the full tree before making strong claims.
-3. Update the markdown artifacts as soon as new verifiable information appears.
-4. Prefer OpenCROW skills as the first tool layer, then use scripts in the `ctf` or `sage` conda environments when needed.
+3. Update the markdown artifacts as soon as new evidence changes the reconstruction of the challenge.
+4. Prefer OpenCROW skills as the first tool layer, then use scripts in the `ctf` or `sage` conda environments when needed for reconnaissance only.
 """
 
 
@@ -695,6 +702,10 @@ def recon_template(
 ## Open Questions
 
 - TODO: list unknowns blocking the next step.
+
+## Handoff Notes For `opencrow-exploit`
+
+- TODO: summarize the best exploitation routes, required prerequisites, and risky assumptions for the follow-up exploit pass.
 """
 
 
@@ -722,38 +733,6 @@ def hypothesis_template(category: str) -> str:
 1. TODO
 2. TODO
 3. TODO
-"""
-
-
-def changelog_template() -> str:
-    return """# CHANGELOG
-
-## Autosetup Seed
-
-- Status: initialized by `opencrow-autosetup`
-- Notes: append new timestamped entries below this section; do not rewrite prior entries.
-"""
-
-
-def findings_template() -> str:
-    return """# findings
-
-## Verifiable Findings
-
-- TODO: record only claims that can be reproduced, with the exact command or procedure.
-"""
-
-
-def writeup_template() -> str:
-    return """# writeup
-
-## Summary
-
-- TODO: complete this only after the solve path is confirmed.
-
-## Reproduction
-
-- TODO: document the final exploitation or solve sequence.
 """
 
 
@@ -797,12 +776,9 @@ def build_prompt(
         "Artifact requirements:\n"
         "- `RECONNAISSANCE.md`: challenge summary, recursive inventory, detected technologies/formats/protocols, "
         "notable artifacts, category evidence, git-history findings when relevant, and open questions.\n"
-        "- `HYPOTHESIS.md`: ranked hypotheses, supporting evidence, contradictions, and next validation steps.\n"
-        "- `CHANGELOG.md`: append-only run log with timestamps, commands, and results.\n"
-        "- `findings.md`: objective, verifiable findings only, with exact reproduction steps.\n"
+        "- `HYPOTHESIS.md`: ranked hypotheses, supporting evidence, contradictions, and likely next validation steps.\n"
         "- `SKILL.md`: category-specific first-response playbook. Use the seeded template as the base and improve it.\n"
-        "- `AGENTS.md`: keep the workspace contract up to date.\n"
-        "- `writeup.md`: create or update only when the solve path is validated or finalized.\n\n"
+        "- `AGENTS.md`: keep the workspace contract up to date for the future `opencrow-exploit` pass.\n\n"
         f"Primary category: `{category}`.\n"
         f"Secondary candidate categories: {secondary}.\n"
         "Detected connection targets:\n"
@@ -812,7 +788,8 @@ def build_prompt(
         f"{git_instruction}\n"
         f"All artifact writes must stay inside: `{output_dir}`.\n"
         "Inspect the full current directory recursively, including ignored files when readable.\n"
-        "Prefer OpenCROW skills as the first tool layer. When scripting is needed, use the `ctf` and `sage` conda environments.\n"
+        "This run is reconnaissance-only. Do not attempt exploitation, final payload development, or flag capture.\n"
+        "Prefer OpenCROW skills as the first tool layer. When scripting is needed, use the `ctf` and `sage` conda environments for reconnaissance only.\n"
         "Do not browse for challenge writeups.\n"
     )
 
@@ -824,9 +801,23 @@ def build_codex_command(
     prompt: str,
     git_repo_root: Path | None,
     model: str | None,
+    interactive: bool,
+    disable_sandbox: bool,
 ) -> list[str]:
-    cmd = [codex_bin, "exec", "--full-auto", "-C", str(workspace_dir)]
-    if git_repo_root is None:
+    cmd = [
+        codex_bin,
+        "-C",
+        str(workspace_dir),
+        "-c",
+        "shell_environment_policy.inherit=all",
+    ]
+    if not interactive:
+        cmd.insert(1, "exec")
+    if disable_sandbox:
+        cmd.append("--dangerously-bypass-approvals-and-sandbox")
+    else:
+        cmd.extend(["--sandbox", "danger-full-access"])
+    if not interactive and git_repo_root is None:
         cmd.append("--skip-git-repo-check")
     if output_dir.resolve() != workspace_dir.resolve():
         cmd.extend(["--add-dir", str(output_dir)])
@@ -872,9 +863,6 @@ def seed_artifacts(
         recon_template(category, detection, output_dir, connection_targets, black_box_only),
     )
     write_if_missing(output_dir / ARTIFACT_NAMES["hypothesis"], hypothesis_template(category))
-    write_if_missing(output_dir / ARTIFACT_NAMES["changelog"], changelog_template())
-    write_if_missing(output_dir / ARTIFACT_NAMES["findings"], findings_template())
-    write_if_missing(output_dir / ARTIFACT_NAMES["writeup"], writeup_template())
 
 
 def main() -> int:
@@ -904,7 +892,16 @@ def main() -> int:
         connection_targets,
         black_box_only,
     )
-    command = build_codex_command(args.codex_bin, workspace_dir, output_dir, prompt, repo_root, args.model)
+    command = build_codex_command(
+        args.codex_bin,
+        workspace_dir,
+        output_dir,
+        prompt,
+        repo_root,
+        args.model,
+        args.interactive,
+        args.disable_sandbox,
+    )
 
     if args.dry_run:
         filtered_secondary = [item for item in detection.secondary if item != category]
@@ -913,6 +910,8 @@ def main() -> int:
         print(f"category={category}")
         print(f"secondary_categories={','.join(filtered_secondary[:3]) or 'none'}")
         print(f"black_box_connection={'yes' if black_box_only else 'no'}")
+        print(f"mode={'interactive' if args.interactive else 'full-auto'}")
+        print(f"sandbox_mode={'disabled' if args.disable_sandbox else 'danger-full-access'}")
         print(f"description_path={description_path}")
         print(f"git_repo={'yes' if repo_root else 'no'}")
         print("connection_targets=")

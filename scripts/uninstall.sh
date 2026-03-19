@@ -190,7 +190,13 @@ uninstall_direct_handler() {
       ;;
     opencrow-autosetup)
       run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-autosetup"
+      run_as_target rm -f "$TARGET_HOME/.local/share/bash-completion/completions/opencrow-autosetup"
       run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-autosetup"
+      ;;
+    opencrow-exploit)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-exploit"
+      run_as_target rm -f "$TARGET_HOME/.local/share/bash-completion/completions/opencrow-exploit"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-exploit"
       ;;
     *)
       echo "Unknown direct uninstall handler: $handler" >&2

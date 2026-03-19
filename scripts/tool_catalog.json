@@ -857,6 +857,17 @@
       "license_url": "https://github.com/02loveslollipop/OpenCROW",
       "install": {"kind": "direct", "handler": "opencrow-autosetup"},
       "verify": {"kind": "command", "value": "opencrow-autosetup"}
+    },
+    {
+      "id": "opencrow-exploit",
+      "display_name": "opencrow-exploit",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Launch a Codex exploit pass from the reconnaissance handoff artifacts in the current workspace.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://github.com/02loveslollipop/OpenCROW",
+      "install": {"kind": "direct", "handler": "opencrow-exploit"},
+      "verify": {"kind": "command", "value": "opencrow-exploit"}
     }
   ]
 }

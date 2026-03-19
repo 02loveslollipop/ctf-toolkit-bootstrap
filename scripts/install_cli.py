@@ -430,7 +430,9 @@ def render_options_panel(
 def run_interactive_installer(
     catalog: tool_catalog.Catalog,
     state: InteractiveState,
-) -> tuple[dict[str, object], InteractiveState]:
+    *,
+    has_existing_install: bool,
+) -> tuple[dict[str, object], InteractiveState, str]:
     from textual.app import App, ComposeResult
     from textual.binding import Binding
     from textual.containers import Vertical, VerticalScroll
@@ -486,10 +488,20 @@ def run_interactive_installer(
             Binding("q", "quit", "Quit", priority=True),
         ]
 
-        def __init__(self, default_state: InteractiveState) -> None:
+        def __init__(self, default_state: InteractiveState, existing_install: bool) -> None:
             super().__init__()
+            initial_mode = default_state.mode
+            if existing_install and initial_mode not in {"update", "modify"}:
+                initial_mode = "update"
             self.state = InteractiveState(
-                mode=default_state.mode,
+                mode=initial_mode,
+                toolbox_ids=list(default_state.toolbox_ids),
+                profile=default_state.profile,
+                tool_ids=list(default_state.tool_ids),
+            )
+            self.has_existing_install = existing_install
+            self.saved_state = InteractiveState(
+                mode="modify",
                 toolbox_ids=list(default_state.toolbox_ids),
                 profile=default_state.profile,
                 tool_ids=list(default_state.tool_ids),
@@ -497,21 +509,27 @@ def run_interactive_installer(
             self.step = "mode"
             self.cursor = 0
             self.terms_index = 0
-            self.mode_options = [
-                TuiOption("fast", "Fast install", "Choose toolboxes, then one profile for all selected tools."),
-                TuiOption("personalized", "Personalized", "Choose toolboxes and then select individual tools."),
-            ]
+            if self.has_existing_install:
+                self.mode_options = [
+                    TuiOption("update", "Update", "Add new toolboxes to the current managed install."),
+                    TuiOption("modify", "Modify", "Edit and replace the current managed install selection."),
+                ]
+            else:
+                self.mode_options = [
+                    TuiOption("fast", "Fast install", "Choose toolboxes, then one profile for all selected tools."),
+                    TuiOption("personalized", "Personalized", "Choose toolboxes and then select individual tools."),
+                ]
             self.toolbox_options = [
                 TuiOption(
                     entry["id"],
                     entry["display_name"],
                     entry["summary"],
-                    checked=entry["id"] in self.state.toolbox_ids,
+                    checked=entry["id"] in self.saved_state.toolbox_ids,
                 )
                 for entry in catalog.raw["toolboxes"]
             ]
             self.profile_options = [
-                TuiOption("headless", "Headless", "CLI and automation-friendly tooling only.", checked=self.state.profile == "headless"),
+                TuiOption("headless", "Headless", "CLI and automation-friendly tooling only.", checked=self.saved_state.profile == "headless"),
                 TuiOption("full", "Full", "Include GUI and manual-acquisition tools when selected.", checked=self.state.profile == "full"),
             ]
             self.tool_options = self.build_tool_options()
@@ -519,6 +537,7 @@ def run_interactive_installer(
                 TuiOption("accept", "Accept", checked=True),
                 TuiOption("deny", "Deny", checked=False),
             ]
+            self.apply_mode_defaults()
 
         def compose(self) -> ComposeResult:
             with Vertical(id="root"):
@@ -555,8 +574,37 @@ def run_interactive_installer(
                 )
             return options
 
+        def apply_mode_defaults(self) -> None:
+            if self.state.mode == "update":
+                self.state.toolbox_ids = []
+                self.state.tool_ids = []
+                for option in self.toolbox_options:
+                    option.checked = False
+                self.select_single(self.profile_options, self.saved_state.profile)
+                self.tool_options = self.build_tool_options()
+                return
+
+            if self.state.mode == "modify":
+                self.state.toolbox_ids = list(self.saved_state.toolbox_ids)
+                self.state.tool_ids = list(self.saved_state.tool_ids)
+                self.state.profile = self.saved_state.profile
+                for option in self.toolbox_options:
+                    option.checked = option.value in self.saved_state.toolbox_ids
+                self.select_single(self.profile_options, self.saved_state.profile)
+                self.tool_options = self.build_tool_options()
+                for option in self.tool_options:
+                    option.checked = option.value in self.saved_state.tool_ids
+                return
+
+            for option in self.toolbox_options:
+                option.checked = option.value in self.state.toolbox_ids
+            self.select_single(self.profile_options, self.state.profile)
+            self.tool_options = self.build_tool_options()
+            for option in self.tool_options:
+                option.checked = option.value in self.state.tool_ids
+
         def proprietary_queue(self) -> list[dict[str, object]]:
-            if self.state.mode == "fast":
+            if self.state.mode in {"fast", "update"}:
                 selection = tool_catalog.resolve_selection(
                     catalog,
                     profile=self.state.profile,
@@ -598,7 +646,7 @@ def run_interactive_installer(
             return [option.value for option in self.tool_options if option.checked]
 
         def build_selection(self) -> dict[str, object]:
-            if self.state.mode == "fast":
+            if self.state.mode in {"fast", "update"}:
                 return tool_catalog.resolve_selection(
                     catalog,
                     profile=self.state.profile,
@@ -630,11 +678,12 @@ def run_interactive_installer(
         def advance(self) -> None:
             if self.step == "mode":
                 self.state.mode = next(option.value for option in self.mode_options if option.checked)
+                self.apply_mode_defaults()
                 self.step = "toolboxes"
                 self.cursor = 0
                 return
             if self.step == "toolboxes":
-                if self.state.mode == "fast":
+                if self.state.mode in {"fast", "update"}:
                     self.step = "profile"
                     self.cursor = 0
                 else:
@@ -697,22 +746,27 @@ def run_interactive_installer(
                 self.step = "toolboxes"
                 self.cursor = 0
             elif self.step == "terms":
-                self.step = "profile" if self.state.mode == "fast" else "tools"
+                self.step = "profile" if self.state.mode in {"fast", "update"} else "tools"
                 self.cursor = 0
             elif self.step == "summary":
-                self.step = "profile" if self.state.mode == "fast" else "tools"
+                self.step = "profile" if self.state.mode in {"fast", "update"} else "tools"
                 self.cursor = 0
 
         def screen_layout(self) -> tuple[Widget | object, Widget | object, Widget | object]:
             if self.step == "mode":
+                title = "Choose install mode"
+                hint = "Use ↑/↓ or j/k, Enter to continue, q to quit."
+                if self.has_existing_install:
+                    title = "Managed install found"
+                    hint = "Update adds new tools. Modify replaces the saved selection."
                 return (
                     Text(""),
                     render_options_panel(
-                        "Choose install mode",
+                        title,
                         self.mode_options,
                         self.cursor,
                         multi_select=False,
-                        hint="Use ↑/↓ or j/k, Enter to continue, q to quit.",
+                        hint=hint,
                     ),
                     Text(""),
                 )
@@ -890,13 +944,15 @@ def run_interactive_installer(
         def action_quit(self) -> None:
             self.exit("__quit__")
 
-    result = InstallerApp(state).run()
+    result = InstallerApp(state, has_existing_install).run()
     console.clear()
     if result == "__quit__":
         raise typer.Exit(code=0)
     if not isinstance(result, dict):
         raise typer.Exit(code=1)
-    return result["selection"], result["state"]
+    final_state = result["state"]
+    strategy = "update" if final_state.mode == "update" else "replace"
+    return result["selection"], final_state, strategy
 
 
 def resolve_target_identity() -> tuple[str, Path]:
@@ -1032,25 +1088,6 @@ def ensure_profile(profile: str | None) -> str | None:
     return profile
 
 
-def should_prompt_interactively(
-    toolbox_ids: list[str],
-    tool_ids: list[str],
-    profile: str | None,
-    force_interactive: bool,
-) -> bool:
-    if force_interactive:
-        if not sys.stdin.isatty() or not sys.stdout.isatty():
-            raise typer.BadParameter("--interactive requires a TTY.")
-        return True
-    return (
-        not toolbox_ids
-        and not tool_ids
-        and profile is None
-        and sys.stdin.isatty()
-        and sys.stdout.isatty()
-    )
-
-
 def proprietary_tools(catalog: tool_catalog.Catalog, selection: dict[str, object]) -> list[dict[str, object]]:
     return [
         catalog.tools[tool_id]
@@ -1085,26 +1122,38 @@ def print_summary(catalog: tool_catalog.Catalog, selection: dict[str, object]) -
     console.print(table)
 
 
-def resolve_selection(
+def resolve_interactive_selection(
     catalog: tool_catalog.Catalog,
     toolbox_ids: list[str],
     tool_ids: list[str],
     profile: str | None,
-    interactive: bool,
     initial_state: InteractiveState | None = None,
-) -> dict[str, object]:
-    if interactive:
-        state = initial_state or InteractiveState()
-        if toolbox_ids:
-            state.toolbox_ids = toolbox_ids
-        if tool_ids:
-            state.mode = "personalized"
-            state.tool_ids = tool_ids
-        if profile:
-            state.profile = profile
+    *,
+    has_existing_install: bool,
+) -> tuple[dict[str, object], str]:
+    state = initial_state or InteractiveState()
+    if toolbox_ids:
+        state.toolbox_ids = toolbox_ids
+    if tool_ids:
+        state.mode = "modify" if has_existing_install else "personalized"
+        state.tool_ids = tool_ids
+    if profile:
+        state.profile = profile
 
-        selection, state = run_interactive_installer(catalog, state)
-        return selection
+    selection, _state, strategy = run_interactive_installer(
+        catalog,
+        state,
+        has_existing_install=has_existing_install,
+    )
+    return selection, strategy
+
+
+def resolve_headless_selection(
+    catalog: tool_catalog.Catalog,
+    toolbox_ids: list[str],
+    tool_ids: list[str],
+    profile: str | None,
+) -> dict[str, object]:
     return tool_catalog.resolve_selection(
         catalog,
         profile=profile or "headless",
@@ -1143,7 +1192,7 @@ def state_to_interactive(selection: dict[str, object]) -> InteractiveState:
 def merge_selections(
     existing: dict[str, object] | None,
     requested: dict[str, object],
-    replace_selection: bool,
+    replace_selection: bool = False,
 ) -> dict[str, object]:
     if replace_selection or existing is None:
         return requested
@@ -1155,6 +1204,19 @@ def merge_selections(
         "toolboxes": toolboxes,
         "tool_ids": tool_ids,
     }
+
+
+def combine_selections(
+    existing: dict[str, object] | None,
+    requested: dict[str, object],
+    *,
+    strategy: str,
+) -> dict[str, object]:
+    if strategy == "update":
+        return merge_selections(existing, requested, False)
+    if strategy == "replace":
+        return requested
+    raise typer.BadParameter(f"Unknown selection strategy: {strategy}")
 
 
 def apt_package_installed(package: str) -> bool:
@@ -1483,7 +1545,9 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
     if handler == "opencrow-autosetup":
         source_dir = ROOT_DIR / "scripts"
         install_dir = ctx.target_home / ".local/opt/opencrow-autosetup"
+        completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
         run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
+        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
         run_as_target(
             ctx,
             [
@@ -1507,10 +1571,66 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
         run_as_target(
             ctx,
             [
+                "install",
+                "-m",
+                "644",
+                str(source_dir / "opencrow-autosetup.bash-completion"),
+                str(completion_dir / "opencrow-autosetup"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
                 "ln",
                 "-sfn",
                 str(install_dir / "opencrow-autosetup"),
                 str(ctx.target_home / ".local/bin/opencrow-autosetup"),
+            ],
+        )
+        return
+    if handler == "opencrow-exploit":
+        source_dir = ROOT_DIR / "scripts"
+        install_dir = ctx.target_home / ".local/opt/opencrow-exploit"
+        completion_dir = ctx.target_home / ".local/share/bash-completion/completions"
+        run_as_target(ctx, ["mkdir", "-p", str(install_dir)])
+        run_as_target(ctx, ["mkdir", "-p", str(completion_dir)])
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "755",
+                str(source_dir / "opencrow_exploit.py"),
+                str(install_dir / "opencrow_exploit.py"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "755",
+                str(source_dir / "opencrow-exploit"),
+                str(install_dir / "opencrow-exploit"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "install",
+                "-m",
+                "644",
+                str(source_dir / "opencrow-exploit.bash-completion"),
+                str(completion_dir / "opencrow-exploit"),
+            ],
+        )
+        run_as_target(
+            ctx,
+            [
+                "ln",
+                "-sfn",
+                str(install_dir / "opencrow-exploit"),
+                str(ctx.target_home / ".local/bin/opencrow-exploit"),
             ],
         )
         return
@@ -1595,14 +1715,14 @@ def warn_noninteractive_terms(catalog: tool_catalog.Catalog, selection: dict[str
         )
 
 
-@app.command()
-def install(
+def run_install_flow(
+    *,
+    mode: str,
     env_name: Annotated[str, typer.Option("--env", help="Conda environment name to create/update.")] = "ctf",
     toolbox: Annotated[list[str], typer.Option("--toolbox", help="Select a toolbox. Repeatable.")] = [],
     tool: Annotated[list[str], typer.Option("--tool", help="Select an individual tool. Repeatable.")] = [],
     profile: Annotated[str | None, typer.Option("--profile", help="Install profile: headless or full.")] = None,
     all_toolboxes: Annotated[bool, typer.Option("--all-toolboxes", help="Select all OpenCROW toolboxes explicitly.")] = False,
-    interactive: Annotated[bool, typer.Option("--interactive", help="Force the interactive installer flow.")] = False,
     replace_selection: Annotated[
         bool,
         typer.Option("--replace-selection", help="Replace the saved managed selection instead of merging into it."),
@@ -1632,25 +1752,124 @@ def install(
     catalog = tool_catalog.load_catalog()
     existing_selection = load_existing_selection(catalog)
     selected_toolboxes = [] if all_toolboxes else toolbox
-    interactive_mode = should_prompt_interactively(selected_toolboxes, tool, profile, interactive)
-    initial_state = (
-        state_to_interactive(existing_selection)
-        if interactive_mode and existing_selection and not replace_selection
-        else None
-    )
-    requested_selection = resolve_selection(catalog, selected_toolboxes, tool, profile, interactive_mode, initial_state)
-    selection = merge_selections(existing_selection, requested_selection, replace_selection)
 
-    if existing_selection and replace_selection:
-        console.print("Existing OpenCROW install state detected; replacing the saved managed selection.", style="cyan")
-    elif existing_selection:
-        console.print("Existing OpenCROW install state detected; applying an incremental update.", style="cyan")
+    if mode == "headless-update" and not all_toolboxes and not selected_toolboxes and not tool:
+        raise typer.BadParameter(
+            "headless-update requires an explicit scope. Pass --tool, --toolbox, or --all-toolboxes."
+        )
 
-    if not interactive_mode:
+    if mode == "interactive":
+        initial_state = state_to_interactive(existing_selection) if existing_selection else None
+        requested_selection, strategy = resolve_interactive_selection(
+            catalog,
+            selected_toolboxes,
+            tool,
+            profile,
+            initial_state,
+            has_existing_install=existing_selection is not None,
+        )
+        selection = combine_selections(existing_selection, requested_selection, strategy=strategy)
+        if existing_selection:
+            message = (
+                "Existing OpenCROW install state detected; updating managed tools."
+                if strategy == "update"
+                else "Existing OpenCROW install state detected; modifying the managed selection."
+            )
+            console.print(message, style="cyan")
+        install_selection(ctx, catalog, requested_selection, selection)
+        return
+
+    if mode == "headless-install":
+        requested_selection = resolve_headless_selection(catalog, selected_toolboxes, tool, profile)
+        strategy = "replace" if replace_selection or existing_selection else "replace"
+        selection = combine_selections(existing_selection, requested_selection, strategy=strategy)
+        if existing_selection:
+            console.print("Existing OpenCROW install state detected; replacing the managed selection.", style="cyan")
         warn_noninteractive_terms(catalog, requested_selection)
         print_summary(catalog, selection)
+        install_selection(ctx, catalog, requested_selection, selection)
+        return
 
-    install_selection(ctx, catalog, requested_selection, selection)
+    if mode == "headless-update":
+        requested_selection = resolve_headless_selection(catalog, selected_toolboxes, tool, profile)
+        selection = combine_selections(existing_selection, requested_selection, strategy="update")
+        if existing_selection:
+            console.print("Existing OpenCROW install state detected; applying an incremental update.", style="cyan")
+        else:
+            console.print("No existing OpenCROW install state detected; creating managed state from the requested selection.", style="cyan")
+        warn_noninteractive_terms(catalog, requested_selection)
+        print_summary(catalog, selection)
+        install_selection(ctx, catalog, requested_selection, selection)
+        return
+
+    raise typer.BadParameter(f"Unknown installer mode: {mode}")
+
+
+@app.command("interactive")
+def interactive_install(
+    env_name: Annotated[str, typer.Option("--env", help="Conda environment name to create/update.")] = "ctf",
+    toolbox: Annotated[list[str], typer.Option("--toolbox", help="Prefill one or more toolboxes in the TUI. Repeatable.")] = [],
+    tool: Annotated[list[str], typer.Option("--tool", help="Prefill one or more tools in the TUI. Repeatable.")] = [],
+    profile: Annotated[str | None, typer.Option("--profile", help="Prefill the profile in the TUI: headless or full.")] = None,
+    all_toolboxes: Annotated[bool, typer.Option("--all-toolboxes", help="Prefill all OpenCROW toolboxes in the TUI.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Print commands without executing them.")] = False,
+) -> None:
+    if not sys.stdin.isatty() or not sys.stdout.isatty():
+        raise typer.BadParameter("The interactive installer requires a TTY.")
+    run_install_flow(
+        mode="interactive",
+        env_name=env_name,
+        toolbox=toolbox,
+        tool=tool,
+        profile=profile,
+        all_toolboxes=all_toolboxes,
+        dry_run=dry_run,
+    )
+
+
+@app.command("headless-install")
+def headless_install(
+    env_name: Annotated[str, typer.Option("--env", help="Conda environment name to create/update.")] = "ctf",
+    toolbox: Annotated[list[str], typer.Option("--toolbox", help="Select a toolbox. Repeatable.")] = [],
+    tool: Annotated[list[str], typer.Option("--tool", help="Select an individual tool. Repeatable.")] = [],
+    profile: Annotated[str | None, typer.Option("--profile", help="Install profile: headless or full.")] = None,
+    all_toolboxes: Annotated[bool, typer.Option("--all-toolboxes", help="Select all OpenCROW toolboxes explicitly.")] = False,
+    replace_selection: Annotated[
+        bool,
+        typer.Option("--replace-selection", help="Replace the saved managed selection instead of merging into it."),
+    ] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Print commands without executing them.")] = False,
+) -> None:
+    run_install_flow(
+        mode="headless-install",
+        env_name=env_name,
+        toolbox=toolbox,
+        tool=tool,
+        profile=profile,
+        all_toolboxes=all_toolboxes,
+        replace_selection=replace_selection,
+        dry_run=dry_run,
+    )
+
+
+@app.command("headless-update")
+def headless_update(
+    env_name: Annotated[str, typer.Option("--env", help="Conda environment name to create/update.")] = "ctf",
+    toolbox: Annotated[list[str], typer.Option("--toolbox", help="Select a toolbox. Repeatable.")] = [],
+    tool: Annotated[list[str], typer.Option("--tool", help="Select an individual tool. Repeatable.")] = [],
+    profile: Annotated[str | None, typer.Option("--profile", help="Install profile: headless or full.")] = None,
+    all_toolboxes: Annotated[bool, typer.Option("--all-toolboxes", help="Select all OpenCROW toolboxes explicitly.")] = False,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Print commands without executing them.")] = False,
+) -> None:
+    run_install_flow(
+        mode="headless-update",
+        env_name=env_name,
+        toolbox=toolbox,
+        tool=tool,
+        profile=profile,
+        all_toolboxes=all_toolboxes,
+        dry_run=dry_run,
+    )
 
 
 def main() -> None:

@@ -19,7 +19,10 @@ jobs:
 
       - name: Validate shell scripts
         run: |
+          bash -n scripts/_installer_bootstrap.sh
           bash -n scripts/install.sh
+          bash -n scripts/install_headless.sh
+          bash -n scripts/update_headless.sh
           bash -n scripts/verify.sh
           bash -n scripts/uninstall.sh
           bash -n scripts/sync_skills.sh
@@ -28,7 +31,7 @@ jobs:
           python3 -m py_compile scripts/install_cli.py
 
       - name: Dry-run installer
-        run: bash scripts/install.sh --env ctf --dry-run
+        run: bash scripts/install_headless.sh --env ctf --dry-run
 
       - name: Dry-run skill sync
         run: |
@@ -53,7 +56,7 @@ jobs:
           python-version: "3.12"
 
       - name: Real headless install
-        run: bash scripts/install.sh --env ctf --profile headless --all-toolboxes
+        run: bash scripts/install_headless.sh --env ctf --profile headless --all-toolboxes
 
       - name: Verify managed install
         run: bash scripts/verify.sh --env ctf

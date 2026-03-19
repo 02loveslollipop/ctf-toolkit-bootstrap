@@ -22,9 +22,9 @@ OpenCROW now resolves installs from the machine-readable catalog at `scripts/too
 
 Behavior:
 
-- `install.sh` is the stable public entrypoint, but now bootstraps a small Python installer venv and delegates to a Typer CLI.
-- On a TTY with no selection flags, `install.sh` starts a full-screen Textual installer that handles selection, resize, proprietary prompts, and confirmation inside one TUI flow.
-- Without a TTY, `install.sh` defaults to a headless install across all OpenCROW toolboxes.
+- `install.sh` is the interactive public entrypoint. It bootstraps a small Python installer venv and opens the full-screen Textual installer.
+- `install_headless.sh` is the non-interactive install entrypoint and uses the same flag-driven selection model as the old shell installer.
+- `update_headless.sh` is the non-interactive additive update entrypoint and merges the requested selection into the saved managed state.
 - The installer prints homepage and license links for every selected tool before it starts.
 - Proprietary packages marked in the catalog require an explicit terms acceptance prompt during interactive installs.
 - Install state is saved under `~/.local/share/opencrow/install-state.json`.
@@ -33,8 +33,10 @@ Behavior:
 
 Interactive modes:
 
-- `fast install`: choose toolboxes, then choose one global profile: `headless` or `full`
-- `personalized`: choose individual tools directly
+- fresh installs: `fast install` or `personalized`
+- existing managed installs: `update` or `modify`
+- `update`: add new toolboxes to the current managed install
+- `modify`: replace the saved managed selection interactively
 
 Current profiles:
 
@@ -123,11 +125,85 @@ bash ./scripts/install.sh
 Common non-interactive examples:
 
 ```bash
-bash ./scripts/install.sh --dry-run
-bash ./scripts/install.sh --profile headless
-bash ./scripts/install.sh --toolbox opencrow-crypto-toolbox --toolbox opencrow-web-toolbox --profile headless
-bash ./scripts/install.sh --tool one_gadget --tool zsteg
-bash ./scripts/install.sh --toolbox opencrow-network-toolbox --replace-selection --profile headless
+bash ./scripts/install_headless.sh --dry-run
+bash ./scripts/install_headless.sh --profile headless
+bash ./scripts/install_headless.sh --toolbox opencrow-crypto-toolbox --toolbox opencrow-web-toolbox --profile headless
+bash ./scripts/install_headless.sh --tool one_gadget --tool zsteg
+bash ./scripts/install_headless.sh --toolbox opencrow-network-toolbox --replace-selection --profile headless
+bash ./scripts/update_headless.sh --toolbox opencrow-web-toolbox --profile headless
+```
+
+## `opencrow-autosetup`
+
+`opencrow-autosetup` is an installed CLI utility from the utility toolbox. It seeds a challenge workspace with reconnaissance artifacts and then launches a nested Codex pass that only performs challenge reconnaissance.
+
+Generated artifacts:
+
+- `AGENTS.md`
+- `SKILL.md`
+- `RECONNAISSANCE.md`
+- `HYPOTHESIS.md`
+
+Behavior:
+
+- reads `DESCRIPTION.md` when present and uses it as the challenge description seed
+- defaults to `pwn` when no stronger category signal is found
+- detects common remote connection strings such as `nc`, `ssh`, and `telnet`
+- if the challenge is a pure remote black-box target, it tells the agent to focus reconnaissance on that connection instead of unrelated local speculation
+- writes artifacts in the current directory by default, or a custom path with `--output-dir`
+- does not attempt exploitation, flag capture, or final solve validation
+- leaves `AGENTS.md` and the recon artifacts as handoff material for a future `opencrow-exploit` pass
+- runs the nested Codex agent with `danger-full-access` plus full inherited shell environment by default
+- supports `--interactive` to launch the recon pass as an interactive Codex session instead of `codex exec`
+- supports `--disable-sandbox` to launch the nested Codex run without sandboxing
+
+Examples:
+
+```bash
+opencrow-autosetup --dry-run
+opencrow-autosetup --interactive
+opencrow-autosetup --category web
+opencrow-autosetup --output-dir ./artifacts
+opencrow-autosetup --disable-sandbox
+opencrow-autosetup --ack-missing-description
+```
+
+Shell completion:
+
+- bash completion is installed at `~/.local/share/bash-completion/completions/opencrow-autosetup`
+- for the current shell session you can load it with:
+
+```bash
+source ~/.local/share/bash-completion/completions/opencrow-autosetup
+```
+
+Run without sandboxing:
+
+```bash
+opencrow-autosetup --disable-sandbox --ack-missing-description
+```
+
+## `opencrow-exploit`
+
+`opencrow-exploit` is the follow-up CLI utility for the solve phase. It reads the current workspace handoff artifacts, builds a prompt for the exploitation agent, and launches Codex in the current directory.
+
+Behavior:
+
+- reads the current workspace documents in this order when present:
+  `AGENTS.md`, `DESCRIPTION.md`, `SKILL.md`, `RECONNAISSANCE.md`, `HYPOTHESIS.md`
+- treats `AGENTS.md` as authoritative when it exists
+- defaults to an interactive Codex session for the exploitation pass
+- supports `--full-auto` to run the solve pass through `codex exec`
+- runs with `danger-full-access` plus full inherited shell environment by default
+- supports `--disable-sandbox` to launch the nested Codex run without sandboxing
+
+Examples:
+
+```bash
+opencrow-exploit
+opencrow-exploit --model gpt-5.4
+opencrow-exploit --full-auto
+opencrow-exploit --disable-sandbox
 ```
 
 ## Verify
