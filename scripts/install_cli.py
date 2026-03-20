@@ -1698,6 +1698,24 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
             support_files=["opencrow_mcp_core.py", "opencrow_ctf_mcp_common.py"],
         )
         return
+    if handler == "opencrow-network-mcp":
+        install_opencrow_python_command(
+            ctx,
+            install_name="opencrow-network-mcp",
+            python_script="opencrow_network_mcp.py",
+            launcher_script="opencrow-network-mcp",
+            support_files=["opencrow_mcp_core.py", "opencrow_ctf_mcp_common.py"],
+        )
+        return
+    if handler == "opencrow-utility-mcp":
+        install_opencrow_python_command(
+            ctx,
+            install_name="opencrow-utility-mcp",
+            python_script="opencrow_utility_mcp.py",
+            launcher_script="opencrow-utility-mcp",
+            support_files=["opencrow_mcp_core.py"],
+        )
+        return
     if handler == "opencrow-netcat-mcp":
         install_opencrow_python_command(
             ctx,

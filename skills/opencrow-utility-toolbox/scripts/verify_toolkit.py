@@ -8,6 +8,7 @@ import shutil
 
 
 SYSTEM_TOOLS = [
+    "opencrow-utility-mcp",
     "jq",
     "yq",
     "xxd",

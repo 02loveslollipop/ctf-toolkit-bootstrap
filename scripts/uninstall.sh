@@ -226,6 +226,14 @@ uninstall_direct_handler() {
       run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-reversing-mcp"
       run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-reversing-mcp"
       ;;
+    opencrow-network-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-network-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-network-mcp"
+      ;;
+    opencrow-utility-mcp)
+      run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-utility-mcp"
+      run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-utility-mcp"
+      ;;
     opencrow-netcat-mcp)
       run_as_target rm -f "$TARGET_HOME/.local/bin/opencrow-netcat-mcp"
       run_as_target rm -rf "$TARGET_HOME/.local/opt/opencrow-netcat-mcp"

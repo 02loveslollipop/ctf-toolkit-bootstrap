@@ -34,6 +34,8 @@ jobs:
           bash -n scripts/opencrow-crypto-mcp
           bash -n scripts/opencrow-pwn-mcp
           bash -n scripts/opencrow-reversing-mcp
+          bash -n scripts/opencrow-network-mcp
+          bash -n scripts/opencrow-utility-mcp
           bash -n scripts/opencrow-netcat-mcp
           bash -n scripts/opencrow-ssh-mcp
           bash -n scripts/opencrow-minecraft-mcp
@@ -46,6 +48,8 @@ jobs:
           python3 -m py_compile scripts/opencrow_crypto_mcp.py
           python3 -m py_compile scripts/opencrow_pwn_mcp.py
           python3 -m py_compile scripts/opencrow_reversing_mcp.py
+          python3 -m py_compile scripts/opencrow_network_mcp.py
+          python3 -m py_compile scripts/opencrow_utility_mcp.py
           python3 -m py_compile scripts/opencrow_stego_mcp.py
           python3 -m py_compile scripts/opencrow_forensics_mcp.py
           python3 -m py_compile scripts/opencrow_osint_mcp.py
@@ -122,6 +126,8 @@ jobs:
           python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-crypto-mcp"
           python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-pwn-mcp"
           python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-reversing-mcp"
+          python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-network-mcp"
+          python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-utility-mcp"
           python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-netcat-mcp"
           python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-ssh-mcp"
           python3 scripts/check_mcp_server.py "$HOME/.local/bin/opencrow-minecraft-mcp"

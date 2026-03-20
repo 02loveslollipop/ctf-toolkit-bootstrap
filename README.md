@@ -4,7 +4,7 @@ Open Codex Runtime for Offensive Workflows.
 
 OpenCROW bootstraps a CTF workstation around an existing Anaconda or Miniconda installation, then syncs the repo-managed Codex skills into `~/.codex/skills`. The current implementation is catalog-driven, stateful, backed by a Python Typer CLI, and able to install a broad headless toolbox set plus most full-profile tools directly.
 
-The first MCP migration wave is also in progress. OpenCROW now ships provider-neutral stdio MCP servers for the smaller toolboxes, with the shared contract defined in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
+OpenCROW now ships provider-neutral stdio MCP servers for every current toolbox plus the I/O helpers, with the shared contract defined in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
 
 ## Requirements
 
@@ -71,6 +71,11 @@ Wave 2 MCP servers:
 - `opencrow-crypto-mcp`
 - `opencrow-pwn-mcp`
 - `opencrow-reversing-mcp`
+
+Wave 3 MCP servers:
+
+- `opencrow-network-mcp`
+- `opencrow-utility-mcp`
 
 I/O MCP servers:
 
@@ -146,6 +151,8 @@ Installed toolbox MCP commands:
 - `opencrow-crypto-mcp`: typed crypto workflows over the `ctf` environment plus cracking helpers
 - `opencrow-pwn-mcp`: typed exploit-development helpers for checksec, cyclic patterns, ELF patching, and one_gadget
 - `opencrow-reversing-mcp`: typed reversing workflows for disassembly, tracing, binwalk, gadget search, and Python analysis
+- `opencrow-network-mcp`: typed packet, PCAP, scanning, and socket-probe workflows over the network toolbox
+- `opencrow-utility-mcp`: typed workspace search, jq/yq queries, and bounded hexdump workflows over the utility toolbox
 
 ## MCP Architecture
 

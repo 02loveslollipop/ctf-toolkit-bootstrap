@@ -16,6 +16,7 @@ PYTHON_MODULES = [
 ]
 
 SYSTEM_TOOLS = [
+    "opencrow-network-mcp",
     "tshark",
     "tcpdump",
     "nmap",

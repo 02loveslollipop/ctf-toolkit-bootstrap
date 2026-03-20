@@ -556,6 +556,17 @@
       "verify": {"kind": "command", "value": "nmap"}
     },
     {
+      "id": "opencrow-network-mcp",
+      "display_name": "opencrow-network-mcp",
+      "toolbox": "opencrow-network-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral MCP server for the OpenCROW network toolbox.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "install": {"kind": "direct", "handler": "opencrow-network-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-network-mcp"}
+    },
+    {
       "id": "sqlmap",
       "display_name": "sqlmap",
       "toolbox": "opencrow-web-toolbox",
@@ -923,6 +934,17 @@
       "license_url": "https://github.com/junegunn/fzf/blob/master/LICENSE",
       "install": {"kind": "apt", "package": "fzf"},
       "verify": {"kind": "command", "value": "fzf"}
+    },
+    {
+      "id": "opencrow-utility-mcp",
+      "display_name": "opencrow-utility-mcp",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Provider-neutral MCP server for the OpenCROW utility toolbox.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "install": {"kind": "direct", "handler": "opencrow-utility-mcp"},
+      "verify": {"kind": "command", "value": "opencrow-utility-mcp"}
     },
     {
       "id": "opencrow-autosetup",
