@@ -124,6 +124,8 @@ Repo-managed skills synced into `~/.codex/skills`:
 - `sagemath` (`OpenCROW Runner - SageMath`)
 - `ssh-async` (`OpenCROW I/O - SSH Async`)
 
+OpenCROW-managed MCP server entries are also synced into `~/.codex/config.toml` for the installed `opencrow-*-mcp` commands, with `startup_timeout_sec = 20` on each managed entry.
+
 High-level skill roles:
 
 - `opencrow-crypto-toolbox`: Python-first crypto solving, cracking, and quick factoring checks
@@ -161,7 +163,7 @@ OpenCROW toolbox MCP servers follow one shared contract:
 - one stdio MCP server per toolbox
 - the same contract also applies to session-oriented I/O helpers
 - provider-neutral typed tools, not Codex-specific shell wrappers
-- common tools on every server: `toolbox_info`, `toolbox_verify`, `toolbox_capabilities`
+- common tools on every server: `toolbox_info`, `toolbox_self_test`, `toolbox_verify`, `toolbox_capabilities`
 - shared response envelope with `ok`, `summary`, `toolbox`, `operation`, `inputs`, `artifacts`, `observations`, `command`, `stdout`, `stderr`, `exit_code`, and `next_steps`
 
 Architecture details and contract rules live in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
@@ -183,6 +185,7 @@ bash ./scripts/install_headless.sh --toolbox opencrow-crypto-toolbox --toolbox o
 bash ./scripts/install_headless.sh --tool one_gadget --tool zsteg
 bash ./scripts/install_headless.sh --toolbox opencrow-network-toolbox --replace-selection --profile headless
 bash ./scripts/update_headless.sh --toolbox opencrow-web-toolbox --profile headless
+python3 ./scripts/sync_codex_mcp_config.py
 ```
 
 ## `opencrow-autosetup`

@@ -14,6 +14,7 @@ from opencrow_mcp_core import (
     error_envelope,
     make_toolbox_capabilities_handler,
     make_toolbox_info_handler,
+    make_toolbox_self_test_handler,
     success_envelope,
 )
 
@@ -323,6 +324,18 @@ def build_server() -> StdioMCPServer:
                     server_name=SERVER_NAME,
                     server_version=SERVER_VERSION,
                     summary="OpenCROW async netcat I/O server information returned.",
+                    operations=OPERATIONS,
+                ),
+            ),
+            MCPTool(
+                name="toolbox_self_test",
+                description="Run a lightweight self-test for this OpenCROW MCP server.",
+                input_schema={"type": "object", "properties": {}},
+                handler=make_toolbox_self_test_handler(
+                    toolbox=TOOLBOX_ID,
+                    display_name=DISPLAY_NAME,
+                    server_name=SERVER_NAME,
+                    server_version=SERVER_VERSION,
                     operations=OPERATIONS,
                 ),
             ),
