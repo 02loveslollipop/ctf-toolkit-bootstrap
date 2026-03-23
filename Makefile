@@ -65,6 +65,8 @@ smoke:
 	python3 -m py_compile scripts/opencrow_crypto_mcp.py
 	python3 -m py_compile scripts/opencrow_pwn_mcp.py
 	python3 -m py_compile scripts/opencrow_reversing_mcp.py
+	python3 -m py_compile scripts/opencrow_reversing_worker.py
+	python3 -m py_compile scripts/reversing_mcp_smoke.py
 	python3 -m py_compile scripts/opencrow_network_mcp.py
 	python3 -m py_compile scripts/opencrow_utility_mcp.py
 	python3 -m py_compile scripts/opencrow_stego_mcp.py

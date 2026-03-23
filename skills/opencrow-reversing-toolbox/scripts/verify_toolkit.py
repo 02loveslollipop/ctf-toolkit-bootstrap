@@ -40,6 +40,28 @@ CONDA_TOOLS = [
 ]
 
 
+def ghidra_install_dir() -> str | None:
+    ghidra_headless = shutil.which("ghidra-headless")
+    if not ghidra_headless:
+        return None
+    resolved = Path(ghidra_headless).resolve()
+    if resolved.name == "analyzeHeadless" and resolved.parent.name == "support":
+        return str(resolved.parent.parent)
+    return str(resolved.parent)
+
+
+def r2ghidra_dec_available() -> bool:
+    if shutil.which("r2") is None:
+        return False
+    result = subprocess.run(
+        ["r2", "-q", "-e", "scr.color=0", "-c", "L~ghidra", "-"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and bool(result.stdout.strip())
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Verify the OpenCROW reversing toolbox inside a conda environment."
@@ -102,9 +124,27 @@ def main() -> int:
     args = build_parser().parse_args()
 
     try:
+        python_modules = check_python_modules(args.env)
+        system_tools = check_system_tools() | check_conda_tools(args.env)
+        ghidra_dir = ghidra_install_dir()
+        capabilities = {
+            "base_reversing_stack": all(
+                [
+                    python_modules.get("capstone", False),
+                    python_modules.get("lief", False),
+                    system_tools.get("r2", False),
+                    system_tools.get("objdump", False),
+                ]
+            ),
+            "decompilation": system_tools.get("ghidra-headless", False) and ghidra_dir is not None,
+            "symbolic_execution": python_modules.get("angr", False) and python_modules.get("claripy", False),
+            "r2ghidra_dec": r2ghidra_dec_available(),
+        }
         payload = {
-            "python_modules": check_python_modules(args.env),
-            "system_tools": check_system_tools() | check_conda_tools(args.env),
+            "capabilities": capabilities,
+            "ghidra_install_dir": ghidra_dir,
+            "python_modules": python_modules,
+            "system_tools": system_tools,
         }
     except subprocess.CalledProcessError as exc:
         print(exc.stderr or str(exc), file=sys.stderr)

@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import traceback
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -158,6 +159,7 @@ def error_envelope(
     operation: str,
     summary: str,
     inputs: JSON,
+    artifacts: list[str] | None = None,
     command: str | None = None,
     stdout: str = "",
     stderr: str = "",
@@ -171,7 +173,7 @@ def error_envelope(
         "toolbox": toolbox,
         "operation": operation,
         "inputs": inputs,
-        "artifacts": [],
+        "artifacts": artifacts or [],
         "observations": observations or [],
         "command": command,
         "stdout": stdout,
@@ -310,6 +312,8 @@ def make_toolbox_info_handler(
                     "server_version": server_version,
                     "transport": "stdio",
                     "protocol_baseline": DEFAULT_PROTOCOL_VERSION,
+                    "supported_protocol_versions": list(SUPPORTED_PROTOCOL_VERSIONS),
+                    "message_framings": [CONTENT_LENGTH_FRAMING, JSON_LINE_FRAMING],
                 },
                 {
                     "operations": operations,
@@ -343,6 +347,8 @@ def make_toolbox_self_test_handler(
                     "server_version": server_version,
                     "transport": "stdio",
                     "protocol_baseline": DEFAULT_PROTOCOL_VERSION,
+                    "supported_protocol_versions": list(SUPPORTED_PROTOCOL_VERSIONS),
+                    "message_framings": [CONTENT_LENGTH_FRAMING, JSON_LINE_FRAMING],
                     "operation_count": len(operations),
                     "registered_tool_count": len(operations) + 4,
                 }
@@ -486,6 +492,8 @@ class StdioMCPServer:
                 "version": self.server_version,
             },
             "instructions": self.instructions or "",
+            "protocolVersions": list(SUPPORTED_PROTOCOL_VERSIONS),
+            "messageFramings": [CONTENT_LENGTH_FRAMING, JSON_LINE_FRAMING],
             "counts": {
                 "tools": len(self.tools),
                 "resources": len(self._all_resources()),
@@ -499,6 +507,17 @@ class StdioMCPServer:
                 "name": self.server_name,
                 "version": self.server_version,
             },
+            "initializeCapabilities": {
+                "tools": {
+                    "listChanged": False,
+                },
+                "resources": {
+                    "subscribe": False,
+                    "listChanged": False,
+                },
+            },
+            "protocolVersions": list(SUPPORTED_PROTOCOL_VERSIONS),
+            "messageFramings": [CONTENT_LENGTH_FRAMING, JSON_LINE_FRAMING],
             "tools": self._tool_descriptors(),
             "resources": self._resource_descriptors(),
             "resourceTemplates": self._resource_template_descriptors(),
@@ -580,7 +599,9 @@ class StdioMCPServer:
                 {
                     "protocolVersion": protocol_version,
                     "capabilities": {
-                        "tools": {},
+                        "tools": {
+                            "listChanged": False,
+                        },
                         "resources": {
                             "subscribe": False,
                             "listChanged": False,
@@ -743,3 +764,36 @@ def merge_env(extra: dict[str, str] | None = None) -> dict[str, str]:
     if extra:
         env.update(extra)
     return env
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _resolve_execution_path(value: str | Path | None, *, cwd: str | Path | None = None) -> str | None:
+    if value is None:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        base = Path(cwd) if cwd is not None else Path.cwd()
+        path = base / path
+    return str(path.resolve())
+
+
+def execution_transcript_path(arguments: JSON) -> str | None:
+    execution = arguments.get("execution") if isinstance(arguments.get("execution"), dict) else {}
+    if not execution:
+        return None
+    cwd = normalize_path(execution.get("cwd"))
+    raw_path = execution.get("transcript_path")
+    if raw_path is None or not str(raw_path).strip():
+        return None
+    return _resolve_execution_path(str(raw_path).strip(), cwd=cwd)
+
+
+def append_jsonl(path: str | Path, payload: JSON) -> str:
+    output_path = Path(path).expanduser().resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+    return str(output_path)

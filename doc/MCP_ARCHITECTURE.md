@@ -69,6 +69,7 @@ Resource reads should return structured text or JSON content with stable URIs an
 - Long-running tools may accept an optional `execution` object with:
   - `cwd`
   - `timeout_sec`
+  - `transcript_path`
 
 ## I/O Server Rules
 
