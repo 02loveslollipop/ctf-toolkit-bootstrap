@@ -1806,9 +1806,20 @@ def install_selection(
         ctx,
         ["env", f"OPENCROW_HOME={ctx.target_home}", "bash", str(ctx.root_dir / "scripts/sync_skills.sh")],
     )
+    run_as_target(
+        ctx,
+        [
+            "python3",
+            str(ctx.root_dir / "scripts/sync_codex_mcp_config.py"),
+            "--config",
+            str(ctx.target_home / ".codex/config.toml"),
+            "--target-home",
+            str(ctx.target_home),
+        ],
+    )
 
     if not plan["selected_tool_ids"]:
-        console.print("All selected tools were already installed; only skills/state were refreshed.", style="cyan")
+        console.print("All selected tools were already installed; only skills/config/state were refreshed.", style="cyan")
 
     if plan["manual_tool_ids"]:
         console.print()

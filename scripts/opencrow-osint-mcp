@@ -1,12 +1,9 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -euo pipefail
 
-SOURCE_PATH="${BASH_SOURCE[0]}"
-while [[ -L "$SOURCE_PATH" ]]; do
-  SOURCE_DIR="$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)"
-  SOURCE_PATH="$(readlink "$SOURCE_PATH")"
-  [[ "$SOURCE_PATH" != /* ]] && SOURCE_PATH="$SOURCE_DIR/$SOURCE_PATH"
-done
-SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE_PATH")" && pwd)"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
 
-exec python3 "$SCRIPT_DIR/opencrow_osint_mcp.py" "$@"
+SCRIPT_PATH="$(/usr/bin/readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(/usr/bin/dirname "$SCRIPT_PATH")" && pwd)"
+
+exec /usr/bin/python3 "$SCRIPT_DIR/opencrow_osint_mcp.py" "$@"

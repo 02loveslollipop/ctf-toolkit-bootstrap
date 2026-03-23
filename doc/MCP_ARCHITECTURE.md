@@ -17,10 +17,14 @@ This document defines the contract for OpenCROW toolbox and I/O MCP servers.
 Every toolbox server must expose the same common tools:
 
 - `toolbox_info`
+- `toolbox_self_test`
 - `toolbox_verify`
 - `toolbox_capabilities`
 
 These tools must keep the same semantics across all toolbox and I/O servers.
+
+- `toolbox_self_test` is the lightweight readiness probe for boot-time MCP checks. It must not perform dependency discovery or environment scans.
+- `toolbox_verify` is the heavier dependency report and should be reserved for explicit diagnostics after the server is already up.
 
 ## Response Envelope
 

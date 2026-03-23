@@ -35,6 +35,22 @@ def read_message(stream: Any) -> dict[str, Any]:
     return json.loads(body.decode("utf-8"))
 
 
+def parse_tool_envelope(response: dict[str, Any]) -> dict[str, Any]:
+    result = response.get("result")
+    if not isinstance(result, dict):
+        raise RuntimeError(f"Missing tool result payload: {response}")
+    content = result.get("content")
+    if not isinstance(content, list) or not content:
+        raise RuntimeError(f"Missing tool content payload: {response}")
+    first = content[0]
+    if not isinstance(first, dict) or first.get("type") != "text":
+        raise RuntimeError(f"Unexpected tool content payload: {response}")
+    text = first.get("text")
+    if not isinstance(text, str):
+        raise RuntimeError(f"Missing tool text payload: {response}")
+    return json.loads(text)
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: check_mcp_server.py /absolute/path/to/server", file=sys.stderr)
@@ -69,26 +85,21 @@ def main() -> int:
             raise RuntimeError(f"Missing serverInfo in initialize response: {init_result}")
 
         write_message(proc.stdin, {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
-        write_message(proc.stdin, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
-        list_result = read_message(proc.stdout)
-        tools = list_result.get("result", {}).get("tools", [])
-        names = {tool.get("name") for tool in tools}
-        required = {"toolbox_info", "toolbox_verify", "toolbox_capabilities"}
-        if not required.issubset(names):
-            raise RuntimeError(f"Missing common tools: expected {required}, got {names}")
-
         write_message(
             proc.stdin,
             {
                 "jsonrpc": "2.0",
-                "id": 3,
+                "id": 2,
                 "method": "tools/call",
-                "params": {"name": "toolbox_info", "arguments": {}},
+                "params": {"name": "toolbox_self_test", "arguments": {}},
             },
         )
-        info_result = read_message(proc.stdout)
-        if "result" not in info_result:
-            raise RuntimeError(f"toolbox_info failed: {info_result}")
+        self_test_result = read_message(proc.stdout)
+        envelope = parse_tool_envelope(self_test_result)
+        if not envelope.get("ok"):
+            raise RuntimeError(f"toolbox_self_test failed: {self_test_result}")
+        if envelope.get("operation") != "toolbox_self_test":
+            raise RuntimeError(f"Unexpected tool response: {self_test_result}")
     finally:
         proc.terminate()
         try:

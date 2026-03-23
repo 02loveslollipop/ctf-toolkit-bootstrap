@@ -214,6 +214,41 @@ def make_toolbox_info_handler(
     return handler
 
 
+def make_toolbox_self_test_handler(
+    *,
+    toolbox: str,
+    display_name: str,
+    server_name: str,
+    server_version: str,
+    operations: list[JSON],
+) -> Handler:
+    def handler(arguments: JSON) -> JSON:
+        return success_envelope(
+            toolbox=toolbox,
+            operation="toolbox_self_test",
+            summary=f"{display_name} self-test passed.",
+            inputs=arguments,
+            observations=[
+                {
+                    "status": "ready",
+                    "display_name": display_name,
+                    "server_name": server_name,
+                    "server_version": server_version,
+                    "transport": "stdio",
+                    "protocol_baseline": DEFAULT_PROTOCOL_VERSION,
+                    "operation_count": len(operations),
+                    "registered_tool_count": len(operations) + 4,
+                }
+            ],
+            next_steps=[
+                "Call `toolbox_capabilities` to inspect the structured operations this server exposes.",
+                "Call `toolbox_verify` when you need dependency status for the current environment.",
+            ],
+        )
+
+    return handler
+
+
 def make_toolbox_capabilities_handler(toolbox: str, operations: list[JSON]) -> Handler:
     def handler(arguments: JSON) -> JSON:
         return success_envelope(
