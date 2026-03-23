@@ -5,7 +5,7 @@ description: Use the Anaconda `ctf` environment and installed reverse-engineerin
 
 # OpenCROW Reversing Toolbox
 
-Prefer the `opencrow-reversing-mcp` server for typed disassembly, tracing, gadget search, and Python-driven analysis. Fall back to the direct scripts only when you need to debug the underlying `ctf`-environment execution path.
+Prefer the `opencrow-reversing-mcp` server for typed disassembly, decompilation, VA-based data reads, emulation, symbolic execution, tracing, gadget search, and Python-driven analysis. Fall back to the direct scripts only when you need to debug the underlying `ctf`-environment execution path.
 
 ## MCP First
 
@@ -13,10 +13,15 @@ Prefer the `opencrow-reversing-mcp` server for typed disassembly, tracing, gadge
 - Use the typed reversing operations:
   - `reversing_python`
   - `reversing_disassemble`
+  - `reversing_decompile`
+  - `reversing_read_data`
+  - `reversing_emulate_blob`
+  - `reversing_symbolic_execute`
   - `reversing_trace`
   - `reversing_binwalk`
   - `reversing_gadget_search`
 - Treat the existing helper scripts as the implementation fallback, not the primary interface.
+- For long workflows, pass `execution.transcript_path` so each MCP step appends a JSONL transcript artifact instead of relying on chat history.
 
 Use this skill for understanding binaries rather than exploiting them: disassembly, decompilation support, tracing, symbolic execution, emulation, dynamic instrumentation, gadget analysis, and binary rewriting in the `ctf` environment.
 
@@ -42,11 +47,12 @@ python ~/.codex/skills/opencrow-reversing-toolbox/scripts/verify_toolkit.py
 
 ## Workflow
 
-1. Start here when the task is "understand behavior" or "recover logic."
-2. Triage with `file`, `strings`, `objdump`, or `r2` before heavier analysis.
-3. Use Python tooling such as `angr`, `claripy`, `capstone`, `keystone`, `unicorn`, `ropper`, `ROPGadget`, `r2pipe`, `lief`, and `qiling` for scripted workflows.
-4. Use `ghidra-headless`, `strace`, `ltrace`, or `binwalk` when the artifact needs decompilation, tracing, or extraction.
-5. Read [references/tooling.md](references/tooling.md) when selecting among the installed reverse-engineering tools.
+1. Start with `toolbox_info`, `toolbox_verify`, and `toolbox_capabilities`.
+2. Triage with `reversing_disassemble` using an explicit `address` or `start_address` when you already know the function entry.
+3. Move to `reversing_decompile` or `reversing_read_data` before dropping into ad hoc scripts.
+4. Use `reversing_emulate_blob` for deterministic execution of small code regions and `reversing_symbolic_execute` when you need to solve for an input that reaches a target address.
+5. Use `reversing_python` only when the typed tools do not cover the analysis shape.
+6. Read [references/tooling.md](references/tooling.md) when selecting among the installed reverse-engineering tools.
 
 ## Tool Selection
 

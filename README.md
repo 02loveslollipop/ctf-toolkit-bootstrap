@@ -152,7 +152,7 @@ Installed toolbox MCP commands:
 
 - `opencrow-crypto-mcp`: typed crypto workflows over the `ctf` environment plus cracking helpers
 - `opencrow-pwn-mcp`: typed exploit-development helpers for checksec, cyclic patterns, ELF patching, and one_gadget
-- `opencrow-reversing-mcp`: typed reversing workflows for disassembly, tracing, binwalk, gadget search, and Python analysis
+- `opencrow-reversing-mcp`: typed reversing workflows for disassembly, decompilation, VA-based data reads, emulation, symbolic execution, tracing, binwalk, gadget search, and Python analysis
 - `opencrow-network-mcp`: typed packet, PCAP, scanning, and socket-probe workflows over the network toolbox
 - `opencrow-utility-mcp`: typed workspace search, jq/yq queries, and bounded hexdump workflows over the utility toolbox
 
@@ -167,6 +167,7 @@ OpenCROW toolbox MCP servers follow one shared contract:
 - common resources on every server: `opencrow://<server>/server`, `opencrow://<server>/capabilities`, and `opencrow://<server>/verify-guide`
 - common resource template on every server: `opencrow://<server>/tools/{name}`
 - shared response envelope with `ok`, `summary`, `toolbox`, `operation`, `inputs`, `artifacts`, `observations`, `command`, `stdout`, `stderr`, `exit_code`, and `next_steps`
+- optional `execution.transcript_path` support for long-running workflows that should append JSONL transcript artifacts
 
 Architecture details and contract rules live in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
 
