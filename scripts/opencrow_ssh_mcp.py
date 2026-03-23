@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from opencrow_io_mcp_common import parse_json_stdout, run_backend_script, session_artifact_paths
+from opencrow_io_mcp_common import normalize_session_name, parse_json_stdout, run_backend_script, session_artifact_paths
 from opencrow_mcp_core import (
     MCPTool,
     MCPResourceTemplate,
@@ -42,6 +42,17 @@ def _run_status(name: str, cwd: str | Path | None, timeout_sec: int) -> tuple[di
     return result, parse_json_stdout(result)
 
 
+def _invalid_session_name(operation: str, inputs: dict[str, object], exc: ValueError) -> dict[str, object]:
+    return error_envelope(
+        toolbox=TOOLBOX_ID,
+        operation=operation,
+        summary="Invalid session name.",
+        inputs=inputs,
+        stderr=str(exc),
+        exit_code=2,
+    )
+
+
 def _session_artifact_snapshot(name: str) -> list[dict[str, object]]:
     return [
         {"path": path, "exists": Path(path).exists()}
@@ -50,7 +61,7 @@ def _session_artifact_snapshot(name: str) -> list[dict[str, object]]:
 
 
 def _read_session_status_resource(uri: str, params: dict[str, str]) -> list[dict[str, object]]:
-    name = params.get("name", "").strip()
+    name = normalize_session_name(params.get("name", ""))
     result, payload = _run_status(name, None, 30)
     return json_resource_contents(
         uri,
@@ -67,7 +78,7 @@ def _read_session_status_resource(uri: str, params: dict[str, str]) -> list[dict
 
 
 def _read_session_artifacts_resource(uri: str, params: dict[str, str]) -> list[dict[str, object]]:
-    name = params.get("name", "").strip()
+    name = normalize_session_name(params.get("name", ""))
     return json_resource_contents(
         uri,
         {
@@ -95,7 +106,7 @@ def toolbox_verify(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def session_start(arguments: dict[str, object]) -> dict[str, object]:
-    name = str(arguments.get("name", "")).strip()
+    raw_name = arguments.get("name", "")
     host = str(arguments.get("host", "")).strip()
     user = arguments.get("user")
     port = int(arguments.get("port", 22))
@@ -104,7 +115,7 @@ def session_start(arguments: dict[str, object]) -> dict[str, object]:
     remote_command = arguments.get("remote_command")
     ssh_bin = str(arguments.get("ssh_bin", "ssh"))
     inputs = {
-        "name": name,
+        "name": str(raw_name).strip(),
         "host": host,
         "user": user,
         "port": port,
@@ -113,7 +124,7 @@ def session_start(arguments: dict[str, object]) -> dict[str, object]:
         "remote_command": remote_command,
         "ssh_bin": ssh_bin,
     }
-    if not name or not host:
+    if not host:
         return error_envelope(
             toolbox=TOOLBOX_ID,
             operation="session_start",
@@ -122,6 +133,11 @@ def session_start(arguments: dict[str, object]) -> dict[str, object]:
             stderr="Pass `name` and `host`.",
             exit_code=2,
         )
+    try:
+        name = normalize_session_name(raw_name)
+    except ValueError as exc:
+        return _invalid_session_name("session_start", inputs, exc)
+    inputs["name"] = name
 
     cwd, timeout_sec = default_execution(arguments)
     command = ["start", "--name", name, "--host", host, "--port", str(port), "--ssh-bin", ssh_bin]
@@ -164,20 +180,16 @@ def session_start(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def session_send(arguments: dict[str, object]) -> dict[str, object]:
-    name = str(arguments.get("name", "")).strip()
+    raw_name = arguments.get("name", "")
     data = str(arguments.get("data", ""))
     newline = bool(arguments.get("newline", False))
     timeout = float(arguments.get("timeout", 3.0))
-    inputs = {"name": name, "data": data, "newline": newline, "timeout": timeout}
-    if not name:
-        return error_envelope(
-            toolbox=TOOLBOX_ID,
-            operation="session_send",
-            summary="Session name is required.",
-            inputs=inputs,
-            stderr="Pass `name`.",
-            exit_code=2,
-        )
+    inputs = {"name": str(raw_name).strip(), "data": data, "newline": newline, "timeout": timeout}
+    try:
+        name = normalize_session_name(raw_name)
+    except ValueError as exc:
+        return _invalid_session_name("session_send", inputs, exc)
+    inputs["name"] = name
 
     cwd, timeout_sec = default_execution(arguments)
     command = ["send", "--name", name, "--data", data, "--timeout", str(timeout)]
@@ -212,19 +224,15 @@ def session_send(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def session_read(arguments: dict[str, object]) -> dict[str, object]:
-    name = str(arguments.get("name", "")).strip()
+    raw_name = arguments.get("name", "")
     tail = arguments.get("tail")
     follow = bool(arguments.get("follow", False))
-    inputs = {"name": name, "tail": tail, "follow": follow}
-    if not name:
-        return error_envelope(
-            toolbox=TOOLBOX_ID,
-            operation="session_read",
-            summary="Session name is required.",
-            inputs=inputs,
-            stderr="Pass `name`.",
-            exit_code=2,
-        )
+    inputs = {"name": str(raw_name).strip(), "tail": tail, "follow": follow}
+    try:
+        name = normalize_session_name(raw_name)
+    except ValueError as exc:
+        return _invalid_session_name("session_read", inputs, exc)
+    inputs["name"] = name
 
     cwd, timeout_sec = default_execution(arguments)
     command = ["read", "--name", name]
@@ -260,17 +268,13 @@ def session_read(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def session_status(arguments: dict[str, object]) -> dict[str, object]:
-    name = str(arguments.get("name", "")).strip()
-    inputs = {"name": name}
-    if not name:
-        return error_envelope(
-            toolbox=TOOLBOX_ID,
-            operation="session_status",
-            summary="Session name is required.",
-            inputs=inputs,
-            stderr="Pass `name`.",
-            exit_code=2,
-        )
+    raw_name = arguments.get("name", "")
+    inputs = {"name": str(raw_name).strip()}
+    try:
+        name = normalize_session_name(raw_name)
+    except ValueError as exc:
+        return _invalid_session_name("session_status", inputs, exc)
+    inputs["name"] = name
 
     cwd, timeout_sec = default_execution(arguments)
     result, payload = _run_status(name, cwd, timeout_sec)
@@ -301,18 +305,14 @@ def session_status(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def session_stop(arguments: dict[str, object]) -> dict[str, object]:
-    name = str(arguments.get("name", "")).strip()
+    raw_name = arguments.get("name", "")
     timeout = float(arguments.get("timeout", 5.0))
-    inputs = {"name": name, "timeout": timeout}
-    if not name:
-        return error_envelope(
-            toolbox=TOOLBOX_ID,
-            operation="session_stop",
-            summary="Session name is required.",
-            inputs=inputs,
-            stderr="Pass `name`.",
-            exit_code=2,
-        )
+    inputs = {"name": str(raw_name).strip(), "timeout": timeout}
+    try:
+        name = normalize_session_name(raw_name)
+    except ValueError as exc:
+        return _invalid_session_name("session_stop", inputs, exc)
+    inputs["name"] = name
 
     cwd, timeout_sec = default_execution(arguments)
     result = run_backend_script(

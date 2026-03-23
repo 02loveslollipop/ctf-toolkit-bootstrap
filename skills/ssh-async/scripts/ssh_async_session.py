@@ -39,8 +39,19 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def validate_session_name(name: str) -> str:
+    normalized = str(name).strip()
+    if not normalized:
+        raise SessionError("Session name is required.")
+    if normalized in {".", ".."} or "/" in normalized or "\\" in normalized:
+        raise SessionError(
+            "Session name must be a single non-empty path segment without '/' or '\\' and cannot be '.' or '..'."
+        )
+    return normalized
+
+
 def session_dir(name: str) -> Path:
-    return BASE_DIR / name
+    return BASE_DIR / validate_session_name(name)
 
 
 def paths_for(name: str) -> dict[str, Path]:

@@ -631,6 +631,8 @@ class StdioMCPServer:
                 contents = self._read_resource(uri.strip())
             except KeyError as exc:
                 return self._error(request_id, -32602, str(exc))
+            except ValueError as exc:
+                return self._error(request_id, -32602, str(exc))
             except Exception as exc:  # pragma: no cover - defensive server path
                 return self._error(request_id, -32603, f"Unhandled exception while reading resource: {exc}")
             return self._result(request_id, {"contents": contents})

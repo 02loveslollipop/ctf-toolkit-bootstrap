@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 
-from opencrow_io_mcp_common import parse_json_stdout, run_backend_script
+from opencrow_io_mcp_common import normalize_session_name, parse_json_stdout, run_backend_script
 from opencrow_mcp_core import (
     MCPTool,
     MCPResourceTemplate,
@@ -44,7 +44,7 @@ OPERATIONS = [
 def _status_command(arguments: dict[str, object]) -> list[str]:
     command = ["status", "--json"]
     if arguments.get("session"):
-        command.extend(["--session", str(arguments["session"])])
+        command.extend(["--session", normalize_session_name(arguments["session"], default="default")])
     if arguments.get("game_dir"):
         command.extend(["--game-dir", str(arguments["game_dir"])])
     return command
@@ -74,8 +74,19 @@ def _minecraft_artifacts(status_payload: dict[str, object] | None) -> list[str]:
     return artifacts
 
 
+def _invalid_session_name(operation: str, inputs: dict[str, object], exc: ValueError) -> dict[str, object]:
+    return error_envelope(
+        toolbox=TOOLBOX_ID,
+        operation=operation,
+        summary="Invalid session name.",
+        inputs=inputs,
+        stderr=str(exc),
+        exit_code=2,
+    )
+
+
 def _read_session_status_resource(uri: str, params: dict[str, str]) -> list[dict[str, object]]:
-    session = params.get("name", "").strip() or "default"
+    session = normalize_session_name(params.get("name", ""), default="default")
     result, payload = _run_status({"session": session})
     return json_resource_contents(
         uri,
@@ -91,7 +102,7 @@ def _read_session_status_resource(uri: str, params: dict[str, str]) -> list[dict
 
 
 def _read_session_artifacts_resource(uri: str, params: dict[str, str]) -> list[dict[str, object]]:
-    session = params.get("name", "").strip() or "default"
+    session = normalize_session_name(params.get("name", ""), default="default")
     _, payload = _run_status({"session": session})
     return json_resource_contents(
         uri,
@@ -127,13 +138,18 @@ def toolbox_verify(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def minecraft_status(arguments: dict[str, object]) -> dict[str, object]:
+    inputs = {"session": arguments.get("session", "default"), "game_dir": arguments.get("game_dir")}
+    try:
+        session = normalize_session_name(arguments.get("session"), default="default")
+    except ValueError as exc:
+        return _invalid_session_name("minecraft_status", inputs, exc)
     result, payload = _run_status(arguments)
     if result["ok"] and isinstance(payload, dict):
         return success_envelope(
             toolbox=TOOLBOX_ID,
             operation="minecraft_status",
             summary="Minecraft status returned.",
-            inputs={"session": arguments.get("session", "default"), "game_dir": arguments.get("game_dir")},
+            inputs={"session": session, "game_dir": arguments.get("game_dir")},
             artifacts=_minecraft_artifacts(payload),
             observations=[payload],
             command=result["command"],
@@ -145,7 +161,7 @@ def minecraft_status(arguments: dict[str, object]) -> dict[str, object]:
         toolbox=TOOLBOX_ID,
         operation="minecraft_status",
         summary="Failed to load Minecraft status.",
-        inputs={"session": arguments.get("session", "default"), "game_dir": arguments.get("game_dir")},
+        inputs={"session": session, "game_dir": arguments.get("game_dir")},
         command=result["command"],
         stdout=result["stdout"],
         stderr=result["stderr"],
@@ -189,7 +205,15 @@ def _run_action(operation: str, command: list[str], inputs: dict[str, object], *
 
 
 def minecraft_launch(arguments: dict[str, object]) -> dict[str, object]:
-    session = str(arguments.get("session", "default"))
+    raw_session = arguments.get("session", "default")
+    try:
+        session = normalize_session_name(raw_session, default="default")
+    except ValueError as exc:
+        return _invalid_session_name(
+            "minecraft_launch",
+            {"session": raw_session, "execution": arguments.get("execution")},
+            exc,
+        )
     command = ["launch", "--session", session]
     inputs = {
         "session": session,
@@ -232,7 +256,15 @@ def minecraft_launch(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def minecraft_join_server(arguments: dict[str, object]) -> dict[str, object]:
-    session = str(arguments.get("session", "default"))
+    raw_session = arguments.get("session", "default")
+    try:
+        session = normalize_session_name(raw_session, default="default")
+    except ValueError as exc:
+        return _invalid_session_name(
+            "minecraft_join_server",
+            {"session": raw_session, "execution": arguments.get("execution")},
+            exc,
+        )
     server = str(arguments.get("server", "")).strip()
     inputs = {
         "session": session,
@@ -274,7 +306,15 @@ def minecraft_join_server(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def minecraft_join_world(arguments: dict[str, object]) -> dict[str, object]:
-    session = str(arguments.get("session", "default"))
+    raw_session = arguments.get("session", "default")
+    try:
+        session = normalize_session_name(raw_session, default="default")
+    except ValueError as exc:
+        return _invalid_session_name(
+            "minecraft_join_world",
+            {"session": raw_session, "execution": arguments.get("execution")},
+            exc,
+        )
     world = str(arguments.get("world", "")).strip()
     inputs = {
         "session": session,
@@ -385,7 +425,15 @@ def minecraft_screenshot(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def minecraft_read_log(arguments: dict[str, object]) -> dict[str, object]:
-    session = str(arguments.get("session", "default"))
+    raw_session = arguments.get("session", "default")
+    try:
+        session = normalize_session_name(raw_session, default="default")
+    except ValueError as exc:
+        return _invalid_session_name(
+            "minecraft_read_log",
+            {"session": raw_session, "execution": arguments.get("execution")},
+            exc,
+        )
     which = str(arguments.get("which", "both"))
     tail = int(arguments.get("tail", 80))
     follow = bool(arguments.get("follow", False))
@@ -406,7 +454,15 @@ def minecraft_read_log(arguments: dict[str, object]) -> dict[str, object]:
 
 
 def minecraft_stop(arguments: dict[str, object]) -> dict[str, object]:
-    session = str(arguments.get("session", "default"))
+    raw_session = arguments.get("session", "default")
+    try:
+        session = normalize_session_name(raw_session, default="default")
+    except ValueError as exc:
+        return _invalid_session_name(
+            "minecraft_stop",
+            {"session": raw_session, "execution": arguments.get("execution")},
+            exc,
+        )
     inputs = {"session": session, "execution": arguments.get("execution")}
     return _run_action("minecraft_stop", ["stop", "--session", session], inputs, status_args={"session": session})
 

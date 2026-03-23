@@ -41,8 +41,19 @@ def now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S%z")
 
 
+def validate_session_name(name: str) -> str:
+    normalized = str(name).strip()
+    if not normalized:
+        raise McError("Session name is required.")
+    if normalized in {".", ".."} or "/" in normalized or "\\" in normalized:
+        raise McError(
+            "Session name must be a single non-empty path segment without '/' or '\\' and cannot be '.' or '..'."
+        )
+    return normalized
+
+
 def session_paths(name: str) -> dict[str, Path]:
-    root = BASE_DIR / name
+    root = BASE_DIR / validate_session_name(name)
     return {
         "root": root,
         "pid": root / "pid",

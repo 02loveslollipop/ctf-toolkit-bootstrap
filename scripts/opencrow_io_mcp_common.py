@@ -19,6 +19,10 @@ BACKEND_FALLBACKS = {
     "minecraft_async.py": REPO_ROOT / "skills" / "minecraft-async" / "scripts" / "minecraft_async.py",
 }
 
+SESSION_NAME_ERROR = (
+    "Session name must be a single non-empty path segment without '/' or '\\' and cannot be '.' or '..'."
+)
+
 
 def backend_script_path(script_name: str) -> Path:
     direct_path = SCRIPT_DIR / script_name
@@ -48,8 +52,19 @@ def parse_json_stdout(result: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+def normalize_session_name(value: object, *, default: str | None = None) -> str:
+    name = "" if value is None else str(value).strip()
+    if not name and default is not None:
+        name = default
+    if not name:
+        raise ValueError("Session name is required.")
+    if name in {".", ".."} or "/" in name or "\\" in name:
+        raise ValueError(SESSION_NAME_ERROR)
+    return name
+
+
 def session_artifact_paths(base_dir: str | Path, name: str) -> list[str]:
-    root = Path(base_dir) / name
+    root = Path(base_dir) / normalize_session_name(name)
     return [
         str(root),
         str(root / "pid"),
