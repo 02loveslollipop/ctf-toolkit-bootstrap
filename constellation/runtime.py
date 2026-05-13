@@ -48,6 +48,7 @@ class RuntimeSocket:
         self.ws: websocket.WebSocketApp | None = None
         self.ws_lock = threading.Lock()
         self.active_turns: dict[str, Any] = {}
+        self.codex_client: Any | None = None
 
     def run_forever(self) -> int:
         self.workspace_root.mkdir(parents=True, exist_ok=True)
@@ -214,24 +215,23 @@ class RuntimeSocket:
     ) -> None:
         self._send({"action": "agent_state", "agent_id": agent_id, "status": "running", "workspace_path": str(workspace)})
         try:
-            from openai_codex import Codex, TextInput
+            from openai_codex import TextInput
         except Exception as exc:
             raise RuntimeError("The Python Codex SDK package `openai-codex` is not installed.") from exc
 
-        codex_kwargs: dict[str, Any] = {}
-        if self.settings.codex_bin:
-            try:
-                from openai_codex import AppServerConfig
-
-                codex_kwargs["config"] = AppServerConfig(codex_bin=self.settings.codex_bin)
-            except Exception:
-                pass
-        with Codex(**codex_kwargs) as codex:
+        codex = self._codex()
+        try:
             if thread_id:
-                thread = codex.thread_resume(thread_id, cwd=str(workspace), model=model)
+                try:
+                    thread = codex.thread_resume(thread_id, cwd=str(workspace), model=model)
+                except Exception:
+                    thread = codex.thread_start(cwd=str(workspace), model=model)
+                    thread_id = self._thread_id(thread)
+                    if thread_id:
+                        self._send({"action": "agent_state", "agent_id": agent_id, "codex_thread_id": str(thread_id)})
             else:
                 thread = codex.thread_start(cwd=str(workspace), model=model)
-                thread_id = getattr(thread, "id", None) or getattr(thread, "thread_id", None)
+                thread_id = self._thread_id(thread)
                 if thread_id:
                     self._send({"action": "agent_state", "agent_id": agent_id, "codex_thread_id": str(thread_id)})
             turn = thread.turn(TextInput(text=prompt), cwd=str(workspace), model=model)
@@ -263,6 +263,27 @@ class RuntimeSocket:
                     "workspace_path": str(workspace),
                 }
             )
+        except Exception:
+            raise
+
+    def _codex(self) -> Any:
+        if self.codex_client is not None:
+            return self.codex_client
+        from openai_codex import Codex
+
+        codex_kwargs: dict[str, Any] = {}
+        if self.settings.codex_bin:
+            try:
+                from openai_codex import AppServerConfig
+
+                codex_kwargs["config"] = AppServerConfig(codex_bin=self.settings.codex_bin)
+            except Exception:
+                pass
+        self.codex_client = Codex(**codex_kwargs)
+        return self.codex_client
+
+    def _thread_id(self, thread: Any) -> str | None:
+        return getattr(thread, "id", None) or getattr(thread, "thread_id", None)
 
     def _workspace_for(self, challenge: dict[str, Any], agent: dict[str, Any]) -> Path:
         slug = str(challenge.get("slug") or challenge.get("id") or "challenge")
