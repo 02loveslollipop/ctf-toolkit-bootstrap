@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import tempfile
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable
@@ -15,6 +16,18 @@ from .config import ClientSettings, UISettings, load_ui_settings
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent / "templates"
 STATIC_ROOT = Path(__file__).resolve().parent / "static"
+
+
+def _safe_upload_name(raw_value: str) -> str:
+    cleaned = "".join(ch for ch in raw_value.replace("\\", "/").split("/")[-1] if 32 <= ord(ch) <= 126)
+    return cleaned.strip() or "upload.bin"
+
+
+def _save_upload_to_temp(part: Any) -> Path:
+    temp_dir = Path(tempfile.mkdtemp(prefix="opencrow-upload-"))
+    target = temp_dir / _safe_upload_name(str(part.filename or "upload.bin"))
+    part.save(target)
+    return target
 
 
 def _client_settings(ui_settings: UISettings, token: str) -> ClientSettings:
@@ -110,8 +123,159 @@ def create_app(ui_settings: UISettings | None = None) -> Flask:
     @require_login
     def index() -> Any:
         client = backend_client()
-        payload = client.list_topics()
-        return render_template("index.html", topics=payload.get("topics", []))
+        topics_payload = client.list_topics()
+        runtimes_payload = client.list_runtimes()
+        challenges_payload = client.list_challenges()
+        return render_template(
+            "index.html",
+            topics=topics_payload.get("topics", []),
+            runtimes=runtimes_payload.get("runtimes", []),
+            challenges=challenges_payload.get("challenges", []),
+        )
+
+    @app.post("/challenges")
+    @require_login
+    def create_challenge() -> Any:
+        client = backend_client()
+        handoff_urls = ConstellationAPIClient.format_handoff_urls(request.form.get("handoff_urls", ""))
+        settings: dict[str, Any] = {}
+        if model := request.form.get("model", "").strip():
+            settings["model"] = model
+        challenge_type = request.form.get("challenge_type", "single_agent").strip() or "single_agent"
+        try:
+            payload = client.create_challenge(
+                title=request.form.get("title", "").strip(),
+                description=request.form.get("description", "").strip(),
+                category=request.form.get("category", "").strip() or "misc",
+                challenge_type=challenge_type,
+                runtime_id=request.form.get("runtime_id", "").strip() or None,
+                handoff_urls=handoff_urls,
+                slug=request.form.get("slug", "").strip() or None,
+                settings=settings or None,
+                start_agent=False,
+            )
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("index"))
+        challenge = payload["challenge"]
+        upload_paths: list[Path] = []
+        for part in request.files.getlist("files"):
+            if not part.filename:
+                continue
+            upload_paths.append(_save_upload_to_temp(part))
+        if upload_paths:
+            try:
+                client.upload_challenge_files(challenge["id"], upload_paths)
+            except ConstellationAPIError as exc:
+                flash(f"Challenge created, but upload failed: {exc}", "error")
+        try:
+            role = "solo" if challenge_type == "single_agent" else "master"
+            client.create_agent(
+                challenge["id"],
+                role=role,
+                display_name=f"{challenge['title']} {role}",
+                runtime_id=challenge.get("runtime_id"),
+                model=settings.get("model"),
+            )
+        except ConstellationAPIError as exc:
+            flash(f"Challenge created, but initial agent failed: {exc}", "error")
+        flash(f"Challenge created: {challenge['title']}", "success")
+        return redirect(url_for("challenge_detail", challenge_id=challenge["id"]))
+
+    @app.route("/challenges/<challenge_id>")
+    @require_login
+    def challenge_detail(challenge_id: str) -> Any:
+        client = backend_client()
+        challenge = client.get_challenge(challenge_id)["challenge"]
+        runtimes = client.list_runtimes().get("runtimes", [])
+        files = client.list_challenge_files(challenge["id"]).get("files", [])
+        agents = client.list_agents(challenge["id"]).get("agents", [])
+        events = client.challenge_events(challenge["id"], limit=200).get("events", [])
+        return render_template(
+            "challenge.html",
+            challenge=challenge,
+            runtimes=runtimes,
+            files=files,
+            agents=agents,
+            events=events,
+        )
+
+    @app.post("/challenges/<challenge_id>/files")
+    @require_login
+    def upload_challenge_files(challenge_id: str) -> Any:
+        client = backend_client()
+        upload_paths: list[Path] = []
+        for part in request.files.getlist("files"):
+            if not part.filename:
+                continue
+            upload_paths.append(_save_upload_to_temp(part))
+        if not upload_paths:
+            flash("Choose at least one file to upload.", "error")
+            return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+        try:
+            client.upload_challenge_files(challenge_id, upload_paths)
+            flash("Files uploaded.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+    @app.post("/challenges/<challenge_id>/agents")
+    @require_login
+    def create_challenge_agent(challenge_id: str) -> Any:
+        client = backend_client()
+        try:
+            client.create_agent(
+                challenge_id,
+                role=request.form.get("role", "slave").strip() or "slave",
+                display_name=request.form.get("display_name", "").strip() or "Slave agent",
+                prompt=request.form.get("prompt", "").strip() or None,
+                runtime_id=request.form.get("runtime_id", "").strip() or None,
+                model=request.form.get("model", "").strip() or None,
+                require_approval=request.form.get("require_approval") == "1",
+            )
+            flash("Agent queued.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+    @app.post("/challenges/<challenge_id>/convert")
+    @require_login
+    def convert_challenge(challenge_id: str) -> Any:
+        client = backend_client()
+        try:
+            client.convert_challenge_to_constellation(challenge_id)
+            flash("Challenge converted to Constellation mode.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+    @app.post("/agents/<agent_id>/prompt")
+    @require_login
+    def prompt_agent(agent_id: str) -> Any:
+        client = backend_client()
+        challenge_id = request.form.get("challenge_id", "").strip()
+        body = request.form.get("body", "").strip()
+        if not body:
+            flash("Prompt body is required.", "error")
+            return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+        try:
+            client.prompt_agent(agent_id, body=body)
+            flash("Prompt queued.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+    @app.post("/agents/<agent_id>/interrupt")
+    @require_login
+    def interrupt_agent(agent_id: str) -> Any:
+        client = backend_client()
+        challenge_id = request.form.get("challenge_id", "").strip()
+        try:
+            client.interrupt_agent(agent_id)
+            flash("Interrupt queued.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
 
     @app.post("/topics")
     @require_login

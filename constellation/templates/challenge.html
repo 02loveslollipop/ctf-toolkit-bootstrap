@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ challenge.title }} | OpenCROW Constellation{% endblock %}
+{% block body %}
+<section class="grid topic-grid">
+  <section class="panel">
+    <h2>{{ challenge.title }}</h2>
+    <div class="meta">
+      <span>{{ challenge.slug }}</span>
+      <span>{{ challenge.category }}</span>
+      <span>{{ challenge.challenge_type }}</span>
+      <span>{{ challenge.status }}</span>
+      <span>{{ challenge.runtime_id or "unassigned" }}</span>
+    </div>
+    <pre>{{ challenge.description }}</pre>
+    {% if challenge.challenge_type != "constellation" %}
+    <form method="post" action="{{ url_for('convert_challenge', challenge_id=challenge.id) }}">
+      <button type="submit">Convert to Constellation</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Files</h2>
+    <form method="post" action="{{ url_for('upload_challenge_files', challenge_id=challenge.id) }}" class="stack" enctype="multipart/form-data">
+      <input type="file" name="files" multiple>
+      <button type="submit">Upload files</button>
+    </form>
+    <ul class="doc-list offset-list">
+      {% for file in files %}
+      <li>
+        <strong>{{ file.name }}</strong>
+        <span class="subtle">{{ file.size }} bytes · {{ file.created_at }}</span>
+      </li>
+      {% else %}
+      <li class="subtle">No challenge files uploaded.</li>
+      {% endfor %}
+    </ul>
+  </section>
+</section>
+
+<section class="grid topic-grid">
+  <section class="panel">
+    <h2>Agents</h2>
+    <ul class="topic-list">
+      {% for agent in agents %}
+      <li>
+        <strong>{{ agent.display_name }}</strong>
+        <div class="meta">
+          <span>{{ agent.role }}</span>
+          <span>{{ agent.status }}</span>
+          <span>{{ agent.runtime_id }}</span>
+          {% if agent.codex_thread_id %}<span>{{ agent.codex_thread_id }}</span>{% endif %}
+        </div>
+        {% if agent.workspace_path %}
+        <div class="subtle">{{ agent.workspace_path }}</div>
+        {% endif %}
+        {% if agent.last_response %}
+        <pre>{{ agent.last_response }}</pre>
+        {% endif %}
+        <form method="post" action="{{ url_for('prompt_agent', agent_id=agent.id) }}" class="stack compact-form">
+          <input type="hidden" name="challenge_id" value="{{ challenge.id }}">
+          <label>
+            <span>Follow-up prompt</span>
+            <textarea name="body" rows="3"></textarea>
+          </label>
+          <div class="button-row">
+            <button type="submit">Send prompt</button>
+            <button type="submit" form="interrupt-{{ agent.id }}" class="danger">Interrupt</button>
+          </div>
+        </form>
+        <form id="interrupt-{{ agent.id }}" method="post" action="{{ url_for('interrupt_agent', agent_id=agent.id) }}">
+          <input type="hidden" name="challenge_id" value="{{ challenge.id }}">
+        </form>
+      </li>
+      {% else %}
+      <li class="subtle">No agents have been created.</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Spawn Agent</h2>
+    <form method="post" action="{{ url_for('create_challenge_agent', challenge_id=challenge.id) }}" class="stack">
+      <label>
+        <span>Name</span>
+        <input type="text" name="display_name" placeholder="Slave agent">
+      </label>
+      <label>
+        <span>Role</span>
+        <select name="role">
+          <option value="slave">Slave</option>
+          <option value="master">Master</option>
+          <option value="solo">Solo</option>
+        </select>
+      </label>
+      <label>
+        <span>Runtime</span>
+        <select name="runtime_id">
+          <option value="">Challenge runtime</option>
+          {% for runtime in runtimes %}
+          <option value="{{ runtime.runtime_id }}">{{ runtime.display_name }} · {{ runtime.status }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Model</span>
+        <input type="text" name="model" placeholder="runtime default">
+      </label>
+      <label>
+        <span>Prompt</span>
+        <textarea name="prompt" rows="6" placeholder="Leave blank for the default role prompt"></textarea>
+      </label>
+      <button type="submit">Spawn</button>
+    </form>
+  </section>
+</section>
+
+<section class="panel topic-grid">
+  <h2>Event Timeline</h2>
+  <ul class="history-list">
+    {% for event in events %}
+    <li>
+      <strong>{{ event.event_type }}</strong>
+      <span class="subtle">{{ event.agent_id or "challenge" }} · {{ event.created_at }}</span>
+      <pre>{{ event.payload|tojson(indent=2) }}</pre>
+    </li>
+    {% else %}
+    <li class="subtle">No runtime events recorded.</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}
