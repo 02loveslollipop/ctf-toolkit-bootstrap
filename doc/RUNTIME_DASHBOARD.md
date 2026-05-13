@@ -25,6 +25,11 @@ The runtime connects outbound to Constellation over `/runtime/ws`, registers
 its capabilities, receives command messages, creates host workspaces, and runs
 Codex through the Python SDK.
 
+The Python SDK is intentionally loaded lazily by the runtime because the SDK is
+currently experimental and may be installed from an SDK checkout or a published
+wheel when available. If `openai_codex` is missing, the runtime registers
+successfully but agent execution fails with an explicit SDK-missing error.
+
 Key runtime environment variables:
 
 - `OPENCROW_RUNTIME_CONTROL_API_BASE_URL`
