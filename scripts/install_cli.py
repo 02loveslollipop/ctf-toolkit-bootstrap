@@ -1386,6 +1386,10 @@ def install_opencrow_python_command(
         if not source_path.exists():
             source_path = ROOT_DIR / support_file
         destination_name = source_path.name
+        if source_path.is_dir():
+            run_as_target(ctx, ["rm", "-rf", str(install_dir / destination_name)])
+            run_as_target(ctx, ["cp", "-R", str(source_path), str(install_dir / destination_name)])
+            continue
         run_as_target(
             ctx,
             [
@@ -1439,9 +1443,11 @@ def install_opencrow_constellation_bundle(ctx: InstallerContext) -> None:
         "opencrow_constellation_admin.py",
         "opencrow_constellation_mcp.py",
         "opencrow_constellation_watcher.py",
+        "opencrow_runtime_shim.py",
         "opencrow-constellation-join",
         "opencrow-constellation-admin",
         "opencrow-constellation-mcp",
+        "opencrow-constellation-runtime",
         "opencrow-constellation-join.bash-completion",
         "opencrow-constellation-admin.bash-completion",
         "opencrow_mcp_core.py",
@@ -1470,6 +1476,7 @@ def install_opencrow_constellation_bundle(ctx: InstallerContext) -> None:
         "opencrow-constellation-join",
         "opencrow-constellation-admin",
         "opencrow-constellation-mcp",
+        "opencrow-constellation-runtime",
     ):
         run_as_target(
             ctx,
@@ -1688,9 +1695,9 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
         install_opencrow_python_command(
             ctx,
             install_name="opencrow-autosetup",
-            python_script="opencrow_autosetup.py",
+            python_script="opencrow_runtime_shim.py",
             launcher_script="opencrow-autosetup",
-            support_files=["opencrow_banner.py", "ascii_text.md"],
+            support_files=["constellation"],
             completion_script="opencrow-autosetup.bash-completion",
         )
         return
@@ -1698,9 +1705,9 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
         install_opencrow_python_command(
             ctx,
             install_name="opencrow-exploit",
-            python_script="opencrow_exploit.py",
+            python_script="opencrow_runtime_shim.py",
             launcher_script="opencrow-exploit",
-            support_files=["opencrow_banner.py", "ascii_text.md"],
+            support_files=["constellation"],
             completion_script="opencrow-exploit.bash-completion",
         )
         return
@@ -1709,6 +1716,7 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
         "opencrow-constellation-join",
         "opencrow-constellation-admin",
         "opencrow-constellation-mcp",
+        "opencrow-constellation-runtime",
     }:
         install_opencrow_constellation_bundle(ctx)
         return

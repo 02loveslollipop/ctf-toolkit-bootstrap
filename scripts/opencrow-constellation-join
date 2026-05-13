@@ -12,4 +12,4 @@ PYTHON_BIN="$SCRIPT_DIR/.venv/bin/python"
 if [[ ! -x "$PYTHON_BIN" ]]; then
   PYTHON_BIN=python3
 fi
-exec "$PYTHON_BIN" "$SCRIPT_DIR/opencrow_constellation_join.py" "$@"
+exec "$PYTHON_BIN" "$SCRIPT_DIR/opencrow_runtime_shim.py" join "$@"
