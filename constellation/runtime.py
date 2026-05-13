@@ -240,6 +240,8 @@ class RuntimeSocket:
             try:
                 for notification in turn.stream():
                     event_payload = json.loads(json.dumps(notification, default=_json_default))
+                    if not isinstance(event_payload, dict):
+                        event_payload = {"value": event_payload}
                     self._send(
                         {
                             "action": "agent_event",
@@ -297,6 +299,8 @@ class RuntimeSocket:
             print(f"[opencrow-runtime] failed to extract {path}: {exc}", flush=True)
 
     def _extract_final_response(self, payload: dict[str, Any]) -> str | None:
+        if not isinstance(payload, dict):
+            return None
         text = payload.get("final_response")
         if isinstance(text, str) and text.strip():
             return text
