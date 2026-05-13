@@ -376,7 +376,7 @@ class ConstellationStorage:
             challenge["id"],
             agent_id=agent["id"],
             runtime_id=assigned_runtime,
-            event_type="agent_created",
+            event_type="agent_spawn_requested" if require_approval else "agent_created",
             payload=agent,
         )
         return agent
@@ -433,6 +433,32 @@ class ConstellationStorage:
             payload=agent,
         )
         return agent
+
+    def approve_agent(self, agent_id: str) -> dict[str, Any]:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            raise KeyError(agent_id)
+        if agent["status"] != "approval_required":
+            raise ValueError(f"Agent is not waiting for approval: {agent['status']}")
+        return self.update_agent_state(agent_id, status="queued")
+
+    def reject_agent(self, agent_id: str, *, reason: str | None = None) -> dict[str, Any]:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            raise KeyError(agent_id)
+        updated = self.update_agent_state(
+            agent_id,
+            status="rejected",
+            metadata={**agent.get("metadata", {}), "rejection_reason": reason or ""},
+        )
+        self.record_agent_event(
+            updated["challenge_id"],
+            agent_id=updated["id"],
+            runtime_id=updated.get("runtime_id"),
+            event_type="agent_rejected",
+            payload=updated,
+        )
+        return updated
 
     def queue_runtime_command(
         self,

@@ -277,6 +277,30 @@ def create_app(ui_settings: UISettings | None = None) -> Flask:
             flash(str(exc), "error")
         return redirect(url_for("challenge_detail", challenge_id=challenge_id))
 
+    @app.post("/agents/<agent_id>/approve")
+    @require_login
+    def approve_agent(agent_id: str) -> Any:
+        client = backend_client()
+        challenge_id = request.form.get("challenge_id", "").strip()
+        try:
+            client.approve_agent(agent_id)
+            flash("Agent spawn approved.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+    @app.post("/agents/<agent_id>/reject")
+    @require_login
+    def reject_agent(agent_id: str) -> Any:
+        client = backend_client()
+        challenge_id = request.form.get("challenge_id", "").strip()
+        try:
+            client.reject_agent(agent_id, reason=request.form.get("reason", "").strip() or None)
+            flash("Agent spawn rejected.", "success")
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
     @app.post("/topics")
     @require_login
     def create_topic() -> Any:

@@ -131,6 +131,12 @@ class ConstellationAPIClient:
     def list_runtimes(self) -> dict[str, Any]:
         return self._json("GET", "/runtimes")
 
+    def runtime_commands(self, runtime_id: str, *, status: str | None = None, limit: int = 100) -> dict[str, Any]:
+        path = f"/runtimes/{runtime_id}/commands?limit={limit}"
+        if status:
+            path = f"{path}&status={status}"
+        return self._json("GET", path)
+
     def list_challenges(self) -> dict[str, Any]:
         return self._json("GET", "/challenges")
 
@@ -227,6 +233,13 @@ class ConstellationAPIClient:
 
     def interrupt_agent(self, agent_id: str) -> dict[str, Any]:
         return self._json("POST", f"/agents/{agent_id}/interrupt", json={})
+
+    def approve_agent(self, agent_id: str) -> dict[str, Any]:
+        return self._json("POST", f"/agents/{agent_id}/approve", json={})
+
+    def reject_agent(self, agent_id: str, *, reason: str | None = None) -> dict[str, Any]:
+        payload = {"reason": reason} if reason else {}
+        return self._json("POST", f"/agents/{agent_id}/reject", json=payload)
 
     def join_topic(
         self,

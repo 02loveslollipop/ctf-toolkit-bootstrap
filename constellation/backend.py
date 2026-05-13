@@ -157,6 +157,17 @@ class RuntimeCollectionHandler(BaseHandler):
         self.write_json({"ok": True, "runtimes": self.app_state.storage.list_runtimes()})
 
 
+class RuntimeCommandsHandler(BaseHandler):
+    def get(self, runtime_id: str) -> None:
+        runtime = self.app_state.storage.get_runtime(runtime_id)
+        if runtime is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown runtime: {runtime_id}")
+        status = self.get_query_argument("status", "").strip() or None
+        limit = int(self.get_query_argument("limit", "100"))
+        commands = self.app_state.storage.list_runtime_commands(runtime_id, status=status, limit=limit)
+        self.write_json({"ok": True, "runtime": runtime, "commands": commands})
+
+
 class ChallengeCollectionHandler(BaseHandler):
     def get(self) -> None:
         self.write_json({"ok": True, "challenges": self.app_state.storage.list_challenges()})
@@ -287,6 +298,45 @@ class AgentItemHandler(BaseHandler):
         agent = self.app_state.storage.get_agent(agent_id)
         if agent is None:
             raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        self.write_json({"ok": True, "agent": agent})
+
+
+class AgentApproveHandler(BaseHandler):
+    def post(self, agent_id: str) -> None:
+        try:
+            agent = self.app_state.storage.approve_agent(agent_id)
+            challenge = self.app_state.storage.get_challenge(agent["challenge_id"])
+            if challenge is None:
+                raise KeyError(agent["challenge_id"])
+            command = self.app_state.storage.queue_runtime_command(
+                agent["runtime_id"],
+                command_type="spawn_agent",
+                challenge_id=agent["challenge_id"],
+                agent_id=agent["id"],
+                payload={
+                    "challenge": challenge,
+                    "agent": agent,
+                    "files": self.app_state.storage.list_challenge_files(agent["challenge_id"]),
+                },
+            )
+        except KeyError as exc:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent or challenge: {agent_id}") from exc
+        except ValueError as exc:
+            raise tornado.web.HTTPError(400, reason=str(exc)) from exc
+        delivered = self.app_state.deliver_runtime_command(command)
+        self.write_json({"ok": True, "agent": agent, "command": command, "delivered": delivered})
+
+
+class AgentRejectHandler(BaseHandler):
+    def post(self, agent_id: str) -> None:
+        payload = self.read_json_body()
+        try:
+            agent = self.app_state.storage.reject_agent(
+                agent_id,
+                reason=str(payload.get("reason", "")).strip() or None,
+            )
+        except KeyError as exc:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}") from exc
         self.write_json({"ok": True, "agent": agent})
 
 
@@ -902,6 +952,7 @@ def build_app(app_state: AppState) -> tornado.web.Application:
             (r"/api/v1/health", HealthHandler, {"app_state": app_state}),
             (r"/api/v1/auth/validate", AuthValidateHandler, {"app_state": app_state}),
             (r"/api/v1/runtimes", RuntimeCollectionHandler, {"app_state": app_state}),
+            (r"/api/v1/runtimes/([^/]+)/commands", RuntimeCommandsHandler, {"app_state": app_state}),
             (r"/api/v1/challenges", ChallengeCollectionHandler, {"app_state": app_state}),
             (r"/api/v1/challenges/([^/]+)", ChallengeItemHandler, {"app_state": app_state}),
             (r"/api/v1/challenges/([^/]+)/convert-to-constellation", ChallengeConvertHandler, {"app_state": app_state}),
@@ -909,6 +960,8 @@ def build_app(app_state: AppState) -> tornado.web.Application:
             (r"/api/v1/challenges/([^/]+)/agents", ChallengeAgentsHandler, {"app_state": app_state}),
             (r"/api/v1/challenges/([^/]+)/events", ChallengeEventsHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)", AgentItemHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)/approve", AgentApproveHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)/reject", AgentRejectHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/events", AgentEventsHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/prompt", AgentPromptHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/interrupt", AgentInterruptHandler, {"app_state": app_state}),

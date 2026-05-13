@@ -57,6 +57,19 @@
         {% if agent.last_response %}
         <pre>{{ agent.last_response }}</pre>
         {% endif %}
+        {% if agent.status == "approval_required" %}
+        <div class="button-row">
+          <form method="post" action="{{ url_for('approve_agent', agent_id=agent.id) }}">
+            <input type="hidden" name="challenge_id" value="{{ challenge.id }}">
+            <button type="submit">Approve spawn</button>
+          </form>
+          <form method="post" action="{{ url_for('reject_agent', agent_id=agent.id) }}">
+            <input type="hidden" name="challenge_id" value="{{ challenge.id }}">
+            <input type="hidden" name="reason" value="Rejected from dashboard">
+            <button type="submit" class="danger">Reject</button>
+          </form>
+        </div>
+        {% endif %}
         <form method="post" action="{{ url_for('prompt_agent', agent_id=agent.id) }}" class="stack compact-form">
           <input type="hidden" name="challenge_id" value="{{ challenge.id }}">
           <label>
