@@ -7,7 +7,7 @@ import base64
 import json
 import secrets
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -24,6 +24,22 @@ from .storage import ConstellationStorage
 class AppState:
     settings: BackendSettings
     storage: ConstellationStorage
+    runtime_sockets: dict[str, Any] = field(default_factory=dict)
+
+    def attach_runtime(self, runtime_id: str, socket: Any) -> None:
+        self.runtime_sockets[runtime_id] = socket
+
+    def detach_runtime(self, runtime_id: str, socket: Any) -> None:
+        if self.runtime_sockets.get(runtime_id) is socket:
+            self.runtime_sockets.pop(runtime_id, None)
+
+    def deliver_runtime_command(self, command: dict[str, Any]) -> bool:
+        runtime_id = str(command.get("runtime_id") or "")
+        socket = self.runtime_sockets.get(runtime_id)
+        if socket is None or getattr(socket, "ws_connection", None) is None:
+            return False
+        socket.write_message(json.dumps({"event_type": "command", "command": command}))
+        return True
 
 
 def _normalize_handoff_urls(value: Any) -> list[str]:
@@ -134,6 +150,198 @@ class TopicCollectionHandler(BaseHandler):
         except ValueError as exc:
             raise tornado.web.HTTPError(409, reason=str(exc)) from exc
         self.write_json({"ok": True, "topic": topic, "single_use_password": admin_secret}, status=201)
+
+
+class RuntimeCollectionHandler(BaseHandler):
+    def get(self) -> None:
+        self.write_json({"ok": True, "runtimes": self.app_state.storage.list_runtimes()})
+
+
+class ChallengeCollectionHandler(BaseHandler):
+    def get(self) -> None:
+        self.write_json({"ok": True, "challenges": self.app_state.storage.list_challenges()})
+
+    def post(self) -> None:
+        payload = self.read_json_body()
+        title = str(payload.get("title", "")).strip()
+        if not title:
+            raise tornado.web.HTTPError(400, reason="`title` is required.")
+        handoff_urls = _normalize_handoff_urls(payload.get("handoff_urls"))
+        try:
+            challenge, agent, command = self.app_state.storage.create_challenge(
+                title=title,
+                description=str(payload.get("description", "")).strip(),
+                category=str(payload.get("category", "misc")).strip() or "misc",
+                challenge_type=str(payload.get("challenge_type", "single_agent")).strip() or "single_agent",
+                runtime_id=str(payload.get("runtime_id", "")).strip() or None,
+                handoff_urls=handoff_urls,
+                settings=payload.get("settings") if isinstance(payload.get("settings"), dict) else None,
+                slug=str(payload.get("slug", "")).strip() or None,
+                metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+                start_agent=bool(payload.get("start_agent", True)),
+            )
+        except RuntimeError as exc:
+            raise tornado.web.HTTPError(409, reason=str(exc)) from exc
+        except (KeyError, ValueError) as exc:
+            raise tornado.web.HTTPError(400, reason=str(exc)) from exc
+        delivered = self.app_state.deliver_runtime_command(command) if command else False
+        self.write_json(
+            {
+                "ok": True,
+                "challenge": challenge,
+                "agent": agent,
+                "command": command,
+                "delivered": delivered,
+            },
+            status=201,
+        )
+
+
+class ChallengeItemHandler(BaseHandler):
+    def get(self, challenge_id: str) -> None:
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        self.write_json({"ok": True, "challenge": challenge})
+
+
+class ChallengeConvertHandler(BaseHandler):
+    def post(self, challenge_id: str) -> None:
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        updated, master = self.app_state.storage.convert_challenge_to_constellation(challenge["id"])
+        self.write_json({"ok": True, "challenge": updated, "master_agent": master})
+
+
+class ChallengeFilesHandler(BaseHandler):
+    def get(self, challenge_id: str) -> None:
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        self.write_json({"ok": True, "files": self.app_state.storage.list_challenge_files(challenge["id"])})
+
+    def post(self, challenge_id: str) -> None:
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        uploaded: list[dict[str, Any]] = []
+        for parts in self.request.files.values():
+            for part in parts:
+                uploaded.append(
+                    self.app_state.storage.add_challenge_file(
+                        challenge["id"],
+                        filename=part.get("filename", "upload.bin"),
+                        data=part.get("body", b""),
+                        content_type=part.get("content_type"),
+                    )
+                )
+        if not uploaded:
+            raise tornado.web.HTTPError(400, reason="At least one uploaded file is required.")
+        self.write_json({"ok": True, "files": uploaded}, status=201)
+
+
+class ChallengeAgentsHandler(BaseHandler):
+    def get(self, challenge_id: str) -> None:
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        self.write_json({"ok": True, "agents": self.app_state.storage.list_agents(challenge["id"])})
+
+    def post(self, challenge_id: str) -> None:
+        payload = self.read_json_body()
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        role = str(payload.get("role", "slave")).strip() or "slave"
+        prompt = str(payload.get("prompt", "")).strip()
+        if not prompt:
+            prompt = self.app_state.storage.default_agent_prompt(challenge, role=role)
+        require_approval = bool(payload.get("require_approval", False))
+        agent = self.app_state.storage.create_agent(
+            challenge["id"],
+            role=role,
+            display_name=str(payload.get("display_name", "")).strip() or f"{challenge['title']} {role}",
+            prompt=prompt,
+            runtime_id=str(payload.get("runtime_id", "")).strip() or challenge.get("runtime_id"),
+            model=str(payload.get("model", "")).strip() or None,
+            metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+            require_approval=require_approval,
+        )
+        command = None
+        delivered = False
+        if not require_approval:
+            command = self.app_state.storage.queue_runtime_command(
+                agent["runtime_id"],
+                command_type="spawn_agent",
+                challenge_id=challenge["id"],
+                agent_id=agent["id"],
+                payload={"challenge": challenge, "agent": agent, "files": self.app_state.storage.list_challenge_files(challenge["id"])},
+            )
+            delivered = self.app_state.deliver_runtime_command(command)
+        self.write_json({"ok": True, "agent": agent, "command": command, "delivered": delivered}, status=201)
+
+
+class AgentItemHandler(BaseHandler):
+    def get(self, agent_id: str) -> None:
+        agent = self.app_state.storage.get_agent(agent_id)
+        if agent is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        self.write_json({"ok": True, "agent": agent})
+
+
+class AgentEventsHandler(BaseHandler):
+    def get(self, agent_id: str) -> None:
+        limit = int(self.get_query_argument("limit", "200"))
+        agent = self.app_state.storage.get_agent(agent_id)
+        if agent is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        self.write_json({"ok": True, "events": self.app_state.storage.list_agent_events(agent_id=agent["id"], limit=limit)})
+
+
+class AgentPromptHandler(BaseHandler):
+    def post(self, agent_id: str) -> None:
+        payload = self.read_json_body()
+        body = str(payload.get("body", "")).strip()
+        if not body:
+            raise tornado.web.HTTPError(400, reason="`body` is required.")
+        agent = self.app_state.storage.get_agent(agent_id)
+        if agent is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        command = self.app_state.storage.queue_runtime_command(
+            agent["runtime_id"],
+            command_type="prompt_agent",
+            challenge_id=agent["challenge_id"],
+            agent_id=agent["id"],
+            payload={"body": body},
+        )
+        delivered = self.app_state.deliver_runtime_command(command)
+        self.write_json({"ok": True, "command": command, "delivered": delivered}, status=201)
+
+
+class AgentInterruptHandler(BaseHandler):
+    def post(self, agent_id: str) -> None:
+        agent = self.app_state.storage.get_agent(agent_id)
+        if agent is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        command = self.app_state.storage.queue_runtime_command(
+            agent["runtime_id"],
+            command_type="interrupt_agent",
+            challenge_id=agent["challenge_id"],
+            agent_id=agent["id"],
+            payload={},
+        )
+        delivered = self.app_state.deliver_runtime_command(command)
+        self.write_json({"ok": True, "command": command, "delivered": delivered}, status=201)
+
+
+class ChallengeEventsHandler(BaseHandler):
+    def get(self, challenge_id: str) -> None:
+        limit = int(self.get_query_argument("limit", "200"))
+        challenge = self.app_state.storage.get_challenge(challenge_id)
+        if challenge is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge: {challenge_id}")
+        self.write_json({"ok": True, "events": self.app_state.storage.list_agent_events(challenge_id=challenge["id"], limit=limit)})
 
 
 class TopicItemHandler(BaseHandler):
@@ -415,6 +623,111 @@ class FileDownloadHandler(BaseHandler):
         self.finish(data)
 
 
+class ChallengeFileDownloadHandler(BaseHandler):
+    def get(self, file_id: str) -> None:
+        try:
+            data, metadata = self.app_state.storage.download_challenge_file(file_id)
+        except Exception as exc:
+            raise tornado.web.HTTPError(404, reason=f"Unknown challenge file: {file_id}") from exc
+        content_type = str(metadata.get("content_type", "application/octet-stream"))
+        filename = _safe_download_filename(str(metadata.get("filename", file_id)))
+        self.set_header("Content-Type", content_type)
+        self.set_header(
+            "Content-Disposition",
+            f"attachment; filename={json.dumps(filename)}; filename*=UTF-8''{quote(filename)}",
+        )
+        self.finish(data)
+
+
+class RuntimeControlWebSocket(tornado.websocket.WebSocketHandler):
+    def initialize(self, app_state: AppState) -> None:
+        self.app_state = app_state
+        self.runtime_id = ""
+
+    def check_origin(self, origin: str) -> bool:
+        return True
+
+    def select_subprotocol(self, subprotocols: list[str]) -> str | None:
+        if "opencrow.runtime.v1" in subprotocols:
+            return "opencrow.runtime.v1"
+        return None
+
+    def open(self) -> None:
+        token = _extract_websocket_token(self.request)
+        if not self.app_state.storage.validate_system_token(token):
+            self.close(code=4001, reason="Unauthorized")
+            return
+        self.write_message(json.dumps({"event_type": "hello", "protocol": "opencrow.runtime.v1"}))
+
+    def on_message(self, message: str) -> None:
+        try:
+            payload = json.loads(message)
+        except json.JSONDecodeError:
+            self.write_message(json.dumps({"event_type": "error", "error": "Invalid JSON payload"}))
+            return
+        action = str(payload.get("action", "")).strip()
+        try:
+            if action == "register":
+                runtime = self.app_state.storage.register_runtime(
+                    runtime_id=str(payload.get("runtime_id", "")).strip(),
+                    display_name=str(payload.get("display_name", "")).strip(),
+                    capabilities=payload.get("capabilities") if isinstance(payload.get("capabilities"), dict) else None,
+                    workspace_root=str(payload.get("workspace_root", "")).strip() or None,
+                    metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+                )
+                self.runtime_id = runtime["runtime_id"]
+                self.app_state.attach_runtime(self.runtime_id, self)
+                self.write_message(json.dumps({"event_type": "registered", "runtime": runtime}))
+                for command in self.app_state.storage.list_runtime_commands(self.runtime_id, status="queued"):
+                    self.write_message(json.dumps({"event_type": "command", "command": command}))
+                return
+            if not self.runtime_id:
+                self.write_message(json.dumps({"event_type": "error", "error": "Runtime must register first."}))
+                return
+            if action == "heartbeat":
+                runtime = self.app_state.storage.touch_runtime(self.runtime_id)
+                self.write_message(json.dumps({"event_type": "heartbeat", "runtime": runtime}))
+                return
+            if action == "command_status":
+                command = self.app_state.storage.update_runtime_command(
+                    str(payload.get("command_id", "")),
+                    status=str(payload.get("status", "")).strip() or "running",
+                    error=str(payload.get("error", "")).strip() or None,
+                )
+                self.write_message(json.dumps({"event_type": "command_status", "command": command}))
+                return
+            if action == "agent_state":
+                agent = self.app_state.storage.update_agent_state(
+                    str(payload.get("agent_id", "")),
+                    status=str(payload.get("status", "")).strip() or None,
+                    codex_thread_id=str(payload.get("codex_thread_id", "")).strip() or None,
+                    workspace_path=str(payload.get("workspace_path", "")).strip() or None,
+                    last_response=str(payload.get("last_response", "")).strip() or None,
+                    metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else None,
+                )
+                self.write_message(json.dumps({"event_type": "agent_state", "agent": agent}))
+                return
+            if action == "agent_event":
+                event = self.app_state.storage.record_agent_event(
+                    str(payload.get("challenge_id", "")).strip(),
+                    agent_id=str(payload.get("agent_id", "")).strip() or None,
+                    runtime_id=self.runtime_id,
+                    event_type=str(payload.get("event_type", "runtime_event")).strip() or "runtime_event",
+                    payload=payload.get("payload") if isinstance(payload.get("payload"), dict) else {},
+                )
+                self.write_message(json.dumps({"event_type": "agent_event", "event": event}))
+                return
+        except Exception as exc:
+            self.write_message(json.dumps({"event_type": "error", "error": str(exc)}))
+            return
+        self.write_message(json.dumps({"event_type": "error", "error": f"Unsupported action: {action}"}))
+
+    def on_close(self) -> None:
+        if self.runtime_id:
+            self.app_state.detach_runtime(self.runtime_id, self)
+            self.app_state.storage.mark_runtime_offline(self.runtime_id)
+
+
 class ConstellationWebSocket(tornado.websocket.WebSocketHandler):
     def initialize(self, app_state: AppState) -> None:
         self.app_state = app_state
@@ -588,6 +901,17 @@ def build_app(app_state: AppState) -> tornado.web.Application:
         [
             (r"/api/v1/health", HealthHandler, {"app_state": app_state}),
             (r"/api/v1/auth/validate", AuthValidateHandler, {"app_state": app_state}),
+            (r"/api/v1/runtimes", RuntimeCollectionHandler, {"app_state": app_state}),
+            (r"/api/v1/challenges", ChallengeCollectionHandler, {"app_state": app_state}),
+            (r"/api/v1/challenges/([^/]+)", ChallengeItemHandler, {"app_state": app_state}),
+            (r"/api/v1/challenges/([^/]+)/convert-to-constellation", ChallengeConvertHandler, {"app_state": app_state}),
+            (r"/api/v1/challenges/([^/]+)/files", ChallengeFilesHandler, {"app_state": app_state}),
+            (r"/api/v1/challenges/([^/]+)/agents", ChallengeAgentsHandler, {"app_state": app_state}),
+            (r"/api/v1/challenges/([^/]+)/events", ChallengeEventsHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)", AgentItemHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)/events", AgentEventsHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)/prompt", AgentPromptHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)/interrupt", AgentInterruptHandler, {"app_state": app_state}),
             (r"/api/v1/topics", TopicCollectionHandler, {"app_state": app_state}),
             (r"/api/v1/topics/([^/]+)", TopicItemHandler, {"app_state": app_state}),
             (r"/api/v1/topics/([^/]+)/history", TopicHistoryHandler, {"app_state": app_state}),
@@ -604,6 +928,8 @@ def build_app(app_state: AppState) -> tornado.web.Application:
             (r"/api/v1/topics/([^/]+)/docs", TopicDocsHandler, {"app_state": app_state}),
             (r"/api/v1/topics/([^/]+)/final-artifacts", TopicFinalArtifactsHandler, {"app_state": app_state}),
             (r"/api/v1/files/([^/]+)", FileDownloadHandler, {"app_state": app_state}),
+            (r"/api/v1/challenge-files/([^/]+)", ChallengeFileDownloadHandler, {"app_state": app_state}),
+            (r"/runtime/ws", RuntimeControlWebSocket, {"app_state": app_state}),
             (r"/ws", ConstellationWebSocket, {"app_state": app_state}),
         ],
         debug=False,
@@ -628,6 +954,8 @@ def main() -> int:
             listen_port=args.port or settings.listen_port,
             system_tokens=settings.system_tokens,
             broker_event_ttl_hours=settings.broker_event_ttl_hours,
+            allowed_ws_origins=settings.allowed_ws_origins,
+            ui_shared_secret=settings.ui_shared_secret,
         )
     elif args.port:
         settings = BackendSettings(
@@ -637,6 +965,8 @@ def main() -> int:
             listen_port=args.port,
             system_tokens=settings.system_tokens,
             broker_event_ttl_hours=settings.broker_event_ttl_hours,
+            allowed_ws_origins=settings.allowed_ws_origins,
+            ui_shared_secret=settings.ui_shared_secret,
         )
     storage = ConstellationStorage(settings)
     storage.ensure_indexes()

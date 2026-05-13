@@ -128,6 +128,106 @@ class ConstellationAPIClient:
     def delete_topic(self, topic: str) -> dict[str, Any]:
         return self._json("DELETE", f"/topics/{topic}")
 
+    def list_runtimes(self) -> dict[str, Any]:
+        return self._json("GET", "/runtimes")
+
+    def list_challenges(self) -> dict[str, Any]:
+        return self._json("GET", "/challenges")
+
+    def create_challenge(
+        self,
+        *,
+        title: str,
+        description: str,
+        category: str,
+        challenge_type: str,
+        runtime_id: str | None = None,
+        handoff_urls: list[str] | None = None,
+        slug: str | None = None,
+        settings: dict[str, Any] | None = None,
+        start_agent: bool = True,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "title": title,
+            "description": description,
+            "category": category,
+            "challenge_type": challenge_type,
+            "handoff_urls": handoff_urls or [],
+            "start_agent": start_agent,
+        }
+        if runtime_id:
+            payload["runtime_id"] = runtime_id
+        if slug:
+            payload["slug"] = slug
+        if settings:
+            payload["settings"] = settings
+        return self._json("POST", "/challenges", json=payload)
+
+    def get_challenge(self, challenge_id: str) -> dict[str, Any]:
+        return self._json("GET", f"/challenges/{challenge_id}")
+
+    def convert_challenge_to_constellation(self, challenge_id: str) -> dict[str, Any]:
+        return self._json("POST", f"/challenges/{challenge_id}/convert-to-constellation", json={})
+
+    def list_challenge_files(self, challenge_id: str) -> dict[str, Any]:
+        return self._json("GET", f"/challenges/{challenge_id}/files")
+
+    def upload_challenge_files(self, challenge_id: str, paths: list[Path]) -> dict[str, Any]:
+        files: list[tuple[str, tuple[str, Any, str]]] = []
+        opened: list[Any] = []
+        try:
+            for path in paths:
+                handle = path.open("rb")
+                opened.append(handle)
+                files.append(("file", (path.name, handle, "application/octet-stream")))
+            response = self._request("POST", f"/challenges/{challenge_id}/files", files=files)
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise ConstellationAPIError(f"Unexpected upload payload: {payload!r}")
+            return payload
+        finally:
+            for handle in opened:
+                handle.close()
+
+    def list_agents(self, challenge_id: str) -> dict[str, Any]:
+        return self._json("GET", f"/challenges/{challenge_id}/agents")
+
+    def create_agent(
+        self,
+        challenge_id: str,
+        *,
+        role: str,
+        display_name: str,
+        prompt: str | None = None,
+        runtime_id: str | None = None,
+        model: str | None = None,
+        require_approval: bool = False,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "role": role,
+            "display_name": display_name,
+            "require_approval": require_approval,
+        }
+        if prompt:
+            payload["prompt"] = prompt
+        if runtime_id:
+            payload["runtime_id"] = runtime_id
+        if model:
+            payload["model"] = model
+        return self._json("POST", f"/challenges/{challenge_id}/agents", json=payload)
+
+    def agent_events(self, agent_id: str, *, limit: int = 200) -> dict[str, Any]:
+        return self._json("GET", f"/agents/{agent_id}/events?limit={limit}")
+
+    def challenge_events(self, challenge_id: str, *, limit: int = 200) -> dict[str, Any]:
+        return self._json("GET", f"/challenges/{challenge_id}/events?limit={limit}")
+
+    def prompt_agent(self, agent_id: str, *, body: str) -> dict[str, Any]:
+        return self._json("POST", f"/agents/{agent_id}/prompt", json={"body": body})
+
+    def interrupt_agent(self, agent_id: str) -> dict[str, Any]:
+        return self._json("POST", f"/agents/{agent_id}/interrupt", json={})
+
     def join_topic(
         self,
         topic: str,
@@ -294,6 +394,10 @@ class ConstellationAPIClient:
             payload["session_epoch"] = session_epoch
         query = urlencode(payload)
         return f"{base}/ws?{query}"
+
+    def build_runtime_ws_url(self) -> str:
+        base = self.settings.ws_base_url.rstrip("/")
+        return f"{base}/runtime/ws"
 
     def build_ws_headers(self) -> list[str]:
         if not self.settings.token:

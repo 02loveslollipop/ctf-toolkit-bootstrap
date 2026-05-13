@@ -16,11 +16,13 @@ Usage: opencrow-constellation-client <subcommand> [args...]
 Subcommands:
   join   Join a Constellation topic from the current workspace.
   admin  Claim master capability using a UI-issued single-use password.
+  runtime Run the host Codex runtime service.
   mcp    Run the Constellation stdio MCP client.
 
 Examples:
   opencrow-constellation-client join challenge-web-1
   opencrow-constellation-client admin challenge-web-1 <single-use-password>
+  opencrow-constellation-client runtime
   opencrow-constellation-client mcp
 EOF
 }
@@ -42,6 +44,10 @@ case "$1" in
   admin)
     shift
     exec "$SCRIPT_DIR/opencrow-constellation-admin" "$@"
+    ;;
+  runtime)
+    shift
+    exec "$SCRIPT_DIR/opencrow-constellation-runtime" "$@"
     ;;
   mcp)
     shift
