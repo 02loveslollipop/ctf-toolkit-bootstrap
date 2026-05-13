@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from enum import Enum
 import json
 import os
 import socket
@@ -23,8 +24,26 @@ from .config import ClientSettings, RuntimeSettings, load_runtime_settings
 def _json_default(value: Any) -> Any:
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
+    if isinstance(value, Enum):
+        return value.value
     if hasattr(value, "__dict__"):
         return dict(value.__dict__)
+    return str(value)
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _jsonable(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [_jsonable(item) for item in value]
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, str | int | float | bool) or value is None:
+        return value
+    if hasattr(value, "model_dump"):
+        return _jsonable(value.model_dump(mode="json"))
+    if hasattr(value, "__dict__"):
+        return _jsonable(vars(value))
     return str(value)
 
 
@@ -239,7 +258,7 @@ class RuntimeSocket:
             final_response = None
             try:
                 for notification in turn.stream():
-                    event_payload = json.loads(json.dumps(notification, default=_json_default))
+                    event_payload = self._notification_payload(notification)
                     if not isinstance(event_payload, dict):
                         event_payload = {"value": event_payload}
                     self._send(
@@ -325,12 +344,30 @@ class RuntimeSocket:
         text = payload.get("final_response")
         if isinstance(text, str) and text.strip():
             return text
+        inner_payload = payload.get("payload")
+        if isinstance(inner_payload, dict):
+            item = inner_payload.get("item")
+            if isinstance(item, dict):
+                root = item.get("root") if isinstance(item.get("root"), dict) else item
+                text = root.get("text") if isinstance(root, dict) else None
+                if isinstance(text, str) and text.strip():
+                    return text
         item = payload.get("item")
         if isinstance(item, dict):
             text = item.get("text") or item.get("message")
             if isinstance(text, str) and text.strip():
                 return text
         return None
+
+    def _notification_payload(self, notification: Any) -> dict[str, Any]:
+        method = getattr(notification, "method", None)
+        payload = getattr(notification, "payload", None)
+        if method is not None or payload is not None:
+            return {
+                "method": str(method) if method is not None else None,
+                "payload": _jsonable(payload),
+            }
+        return _jsonable(notification)
 
     def _codex_sdk_available(self) -> bool:
         try:
