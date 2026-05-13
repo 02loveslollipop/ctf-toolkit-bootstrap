@@ -214,7 +214,7 @@ class RuntimeSocket:
     ) -> None:
         self._send({"action": "agent_state", "agent_id": agent_id, "status": "running", "workspace_path": str(workspace)})
         try:
-            from openai_codex import Codex
+            from openai_codex import Codex, TextInput
         except Exception as exc:
             raise RuntimeError("The Python Codex SDK package `openai-codex` is not installed.") from exc
 
@@ -234,7 +234,7 @@ class RuntimeSocket:
                 thread_id = getattr(thread, "id", None) or getattr(thread, "thread_id", None)
                 if thread_id:
                     self._send({"action": "agent_state", "agent_id": agent_id, "codex_thread_id": str(thread_id)})
-            turn = thread.turn(prompt, cwd=str(workspace), model=model)
+            turn = thread.turn(TextInput(text=prompt), cwd=str(workspace), model=model)
             self.active_turns[agent_id] = turn
             final_response = None
             try:
