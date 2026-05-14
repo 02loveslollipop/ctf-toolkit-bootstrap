@@ -2,6 +2,10 @@
 
 This document describes the new dashboard-managed execution path.
 
+For the full software design, code-level implementation notes, and Mermaid
+C4/class/sequence diagrams, see
+[RUNTIME_DASHBOARD_ARCHITECTURE.md](RUNTIME_DASHBOARD_ARCHITECTURE.md).
+
 ## Runtime Model
 
 Constellation remains the control plane. MongoDB/GridFS store challenges, files,
