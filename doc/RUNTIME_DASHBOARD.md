@@ -5,6 +5,8 @@ This document describes the new dashboard-managed execution path.
 For the full software design, code-level implementation notes, and Mermaid
 C4/class/sequence diagrams, see
 [RUNTIME_DASHBOARD_ARCHITECTURE.md](RUNTIME_DASHBOARD_ARCHITECTURE.md).
+For the three-category runtime validation run, see
+[RUNTIME_DEEP_SMOKE_TEST.md](RUNTIME_DEEP_SMOKE_TEST.md).
 
 ## Runtime Model
 
