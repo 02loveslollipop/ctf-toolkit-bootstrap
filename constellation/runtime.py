@@ -6,7 +6,9 @@ import argparse
 from enum import Enum
 import json
 import os
+import shutil
 import socket
+import stat
 import tarfile
 import threading
 import time
@@ -332,12 +334,48 @@ class RuntimeSocket:
         try:
             if zipfile.is_zipfile(path):
                 with zipfile.ZipFile(path) as archive:
-                    archive.extractall(workspace)
+                    for member in archive.infolist():
+                        destination = self._safe_archive_destination(workspace, member.filename)
+                        mode = member.external_attr >> 16
+                        if stat.S_ISLNK(mode):
+                            raise RuntimeError(f"Refusing to extract symlink from archive entry: {member.filename}")
+                        if member.is_dir():
+                            destination.mkdir(parents=True, exist_ok=True)
+                            continue
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        with archive.open(member) as source, destination.open("wb") as target:
+                            shutil.copyfileobj(source, target)
             elif tarfile.is_tarfile(path):
                 with tarfile.open(path) as archive:
-                    archive.extractall(workspace)
+                    for member in archive.getmembers():
+                        destination = self._safe_archive_destination(workspace, member.name)
+                        if member.issym() or member.islnk():
+                            raise RuntimeError(f"Refusing to extract link from archive entry: {member.name}")
+                        if member.isdir():
+                            destination.mkdir(parents=True, exist_ok=True)
+                            continue
+                        if not member.isfile():
+                            continue
+                        source = archive.extractfile(member)
+                        if source is None:
+                            continue
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        with source, destination.open("wb") as target:
+                            shutil.copyfileobj(source, target)
         except Exception as exc:
             print(f"[opencrow-runtime] failed to extract {path}: {exc}", flush=True)
+
+    def _safe_archive_destination(self, workspace: Path, member_name: str) -> Path:
+        base = workspace.resolve()
+        relative = Path(member_name.replace("\\", "/"))
+        if relative.is_absolute():
+            raise RuntimeError(f"Refusing to extract absolute archive path: {member_name}")
+        destination = (base / relative).resolve()
+        try:
+            destination.relative_to(base)
+        except ValueError as exc:
+            raise RuntimeError(f"Refusing to extract path outside workspace: {member_name}") from exc
+        return destination
 
     def _extract_final_response(self, payload: dict[str, Any]) -> str | None:
         if not isinstance(payload, dict):
