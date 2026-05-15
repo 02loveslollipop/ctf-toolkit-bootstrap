@@ -13,7 +13,7 @@ import tarfile
 import threading
 import time
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import requests
@@ -336,8 +336,7 @@ class RuntimeSocket:
                 with zipfile.ZipFile(path) as archive:
                     for member in archive.infolist():
                         destination = self._safe_archive_destination(workspace, member.filename)
-                        mode = member.external_attr >> 16
-                        if stat.S_ISLNK(mode):
+                        if self._zip_member_is_symlink(member):
                             raise RuntimeError(f"Refusing to extract symlink from archive entry: {member.filename}")
                         if member.is_dir():
                             destination.mkdir(parents=True, exist_ok=True)
@@ -367,15 +366,27 @@ class RuntimeSocket:
 
     def _safe_archive_destination(self, workspace: Path, member_name: str) -> Path:
         base = workspace.resolve()
-        relative = Path(member_name.replace("\\", "/"))
+        if "\x00" in member_name:
+            raise RuntimeError("Refusing to extract archive path containing null bytes.")
+        relative = PurePosixPath(member_name.replace("\\", "/"))
         if relative.is_absolute():
             raise RuntimeError(f"Refusing to extract absolute archive path: {member_name}")
-        destination = (base / relative).resolve()
+        parts = relative.parts
+        if any(part == ".." for part in parts):
+            raise RuntimeError(f"Refusing to extract path outside workspace: {member_name}")
+        destination = (base / Path(*parts)).resolve()
         try:
             destination.relative_to(base)
         except ValueError as exc:
             raise RuntimeError(f"Refusing to extract path outside workspace: {member_name}") from exc
         return destination
+
+    def _zip_member_is_symlink(self, member: zipfile.ZipInfo) -> bool:
+        is_symlink = getattr(member, "is_symlink", None)
+        if callable(is_symlink):
+            return bool(is_symlink())
+        mode = member.external_attr >> 16
+        return stat.S_ISLNK(mode)
 
     def _extract_final_response(self, payload: dict[str, Any]) -> str | None:
         if not isinstance(payload, dict):
