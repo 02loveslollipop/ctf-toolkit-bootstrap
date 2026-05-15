@@ -108,6 +108,19 @@ class UISettings:
     shared_secret: str | None
 
 
+@dataclass(frozen=True)
+class RuntimeSettings:
+    control_api_base_url: str
+    control_ws_base_url: str
+    token: str
+    runtime_id: str
+    display_name: str
+    workspace_root: str
+    codex_model: str | None
+    codex_bin: str | None
+    reconnect_delay_sec: int
+
+
 def load_client_settings(*, overrides: dict[str, Any] | None = None) -> ClientSettings:
     config = _load_config_file()
     merged = dict(config)
@@ -316,4 +329,74 @@ def load_ui_settings() -> UISettings:
             "opencrow-constellation-ui-dev-secret",
         ))
         else None,
+    )
+
+
+def load_runtime_settings() -> RuntimeSettings:
+    config = _load_config_file()
+    api_base = _normalize_http_base(
+        str(
+            _env_or_config(
+                "OPENCROW_RUNTIME_CONTROL_API_BASE_URL",
+                config,
+                "runtime_control_api_base_url",
+                "http://127.0.0.1:8787",
+            )
+        )
+    )
+    ws_base = _env_or_config(
+        "OPENCROW_RUNTIME_CONTROL_WS_BASE_URL",
+        config,
+        "runtime_control_ws_base_url",
+        None,
+    )
+    return RuntimeSettings(
+        control_api_base_url=api_base,
+        control_ws_base_url=_normalize_ws_base(str(ws_base)) if ws_base else default_ws_base_from_api(api_base),
+        token=str(
+            _env_or_config(
+                "OPENCROW_RUNTIME_TOKEN",
+                config,
+                "runtime_token",
+                DEFAULT_DEVELOPMENT_TOKEN,
+            )
+        ),
+        runtime_id=str(
+            _env_or_config(
+                "OPENCROW_RUNTIME_ID",
+                config,
+                "runtime_id",
+                "",
+            )
+        ),
+        display_name=str(
+            _env_or_config(
+                "OPENCROW_RUNTIME_DISPLAY_NAME",
+                config,
+                "runtime_display_name",
+                "",
+            )
+        ),
+        workspace_root=str(
+            _env_or_config(
+                "OPENCROW_RUNTIME_WORKSPACE_ROOT",
+                config,
+                "runtime_workspace_root",
+                "~/.local/share/opencrow/runtime-workspaces",
+            )
+        ),
+        codex_model=str(model)
+        if (model := _env_or_config("OPENCROW_RUNTIME_CODEX_MODEL", config, "runtime_codex_model", ""))
+        else None,
+        codex_bin=str(codex_bin)
+        if (codex_bin := _env_or_config("OPENCROW_RUNTIME_CODEX_BIN", config, "runtime_codex_bin", ""))
+        else None,
+        reconnect_delay_sec=int(
+            _env_or_config(
+                "OPENCROW_RUNTIME_RECONNECT_DELAY_SEC",
+                config,
+                "runtime_reconnect_delay_sec",
+                5,
+            )
+        ),
     )

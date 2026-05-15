@@ -1,11 +1,12 @@
 :root {
-  --bg: #f6f1e8;
-  --panel: #fffdf8;
+  --bg: #f5f7f8;
+  --panel: #ffffff;
   --ink: #1d2a32;
-  --muted: #5f6b72;
-  --line: #d7c8b4;
+  --muted: #5c6770;
+  --line: #cfd7dd;
   --accent: #0d6c73;
   --danger: #9c2f2f;
+  --code: #eef3f4;
 }
 
 * {
@@ -16,9 +17,7 @@ body {
   margin: 0;
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
   color: var(--ink);
-  background:
-    radial-gradient(circle at top right, rgba(13, 108, 115, 0.12), transparent 28rem),
-    linear-gradient(180deg, #efe6d6, var(--bg));
+  background: var(--bg);
 }
 
 a {
@@ -33,15 +32,16 @@ h1, h2 {
 
 pre {
   white-space: pre-wrap;
-  background: #f4efe7;
+  background: var(--code);
   padding: 0.75rem;
-  border-radius: 0.5rem;
+  border-radius: 0.4rem;
+  overflow-wrap: anywhere;
 }
 
 code {
-  background: #efe8dc;
+  background: var(--code);
   padding: 0.1rem 0.35rem;
-  border-radius: 0.35rem;
+  border-radius: 0.3rem;
 }
 
 .shell {
@@ -70,7 +70,7 @@ header.shell {
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 0.9rem;
+  border-radius: 0.5rem;
   padding: 1rem;
   box-shadow: 0 0.5rem 2rem rgba(29, 42, 50, 0.06);
 }
@@ -103,13 +103,13 @@ select {
   width: 100%;
   padding: 0.7rem 0.8rem;
   border: 1px solid var(--line);
-  border-radius: 0.65rem;
+  border-radius: 0.4rem;
   background: #fff;
 }
 
 button {
   border: 0;
-  border-radius: 999px;
+  border-radius: 0.4rem;
   padding: 0.75rem 1.1rem;
   background: var(--accent);
   color: #fff;
@@ -173,6 +173,11 @@ button.danger {
 
 .flat-files {
   margin-top: 0.5rem;
+}
+
+.offset-list,
+.compact-form {
+  margin-top: 1rem;
 }
 
 @media (max-width: 720px) {

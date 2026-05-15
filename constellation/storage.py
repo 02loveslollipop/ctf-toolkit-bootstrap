@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import mimetypes
 import hashlib
 import re
 import secrets
@@ -57,7 +58,16 @@ class ConstellationStorage:
         self.final_artifacts: Collection = self.db["final_artifacts"]
         self.admin_tokens: Collection = self.db["admin_tokens"]
         self.broker_events: Collection = self.db["broker_events"]
+        self.runtimes: Collection = self.db["runtimes"]
+        self.challenges: Collection = self.db["challenges"]
+        self.challenge_files: Collection = self.db["challenge_files"]
+        self.agents: Collection = self.db["agents"]
+        self.agent_artifacts: Collection = self.db["agent_artifacts"]
+        self.runtime_commands: Collection = self.db["runtime_commands"]
+        self.agent_events: Collection = self.db["agent_events"]
         self.bucket = GridFSBucket(self.db, bucket_name="final_artifacts_files")
+        self.challenge_bucket = GridFSBucket(self.db, bucket_name="challenge_files")
+        self.agent_artifact_bucket = GridFSBucket(self.db, bucket_name="agent_artifacts")
 
     def ensure_indexes(self) -> None:
         self.topics.create_index([("slug", ASCENDING)], unique=True)
@@ -84,9 +94,528 @@ class ConstellationStorage:
         self.admin_tokens.create_index([("topic", ASCENDING), ("used", ASCENDING)])
         self.broker_events.create_index([("topic", ASCENDING), ("created_at", DESCENDING)])
         self.broker_events.create_index([("expire_at", ASCENDING)], expireAfterSeconds=0)
+        self.runtimes.create_index([("runtime_id", ASCENDING)], unique=True)
+        self.runtimes.create_index([("last_seen_at", DESCENDING)])
+        self.challenges.create_index([("slug", ASCENDING)], unique=True)
+        self.challenges.create_index([("created_at", DESCENDING)])
+        self.challenges.create_index([("runtime_id", ASCENDING), ("status", ASCENDING)])
+        self.challenge_files.create_index([("challenge_id", ASCENDING), ("created_at", DESCENDING)])
+        self.agents.create_index([("challenge_id", ASCENDING), ("created_at", ASCENDING)])
+        self.agents.create_index([("runtime_id", ASCENDING), ("status", ASCENDING)])
+        self.agent_artifacts.create_index([("agent_id", ASCENDING), ("created_at", DESCENDING)])
+        self.agent_artifacts.create_index([("challenge_id", ASCENDING), ("created_at", DESCENDING)])
+        self.runtime_commands.create_index([("runtime_id", ASCENDING), ("status", ASCENDING), ("created_at", ASCENDING)])
+        self.runtime_commands.create_index([("agent_id", ASCENDING), ("created_at", ASCENDING)])
+        self.agent_events.create_index([("challenge_id", ASCENDING), ("created_at", DESCENDING)])
+        self.agent_events.create_index([("agent_id", ASCENDING), ("created_at", DESCENDING)])
+        self.agent_events.create_index([("runtime_id", ASCENDING), ("created_at", DESCENDING)])
 
     def validate_system_token(self, token: str) -> bool:
         return token in self.settings.system_tokens
+
+    def register_runtime(
+        self,
+        *,
+        runtime_id: str,
+        display_name: str,
+        capabilities: dict[str, Any] | None = None,
+        workspace_root: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+        cleaned_id = runtime_id.strip() or f"runtime-{secrets.token_hex(6)}"
+        update = {
+            "runtime_id": cleaned_id,
+            "display_name": display_name.strip() or cleaned_id,
+            "status": "online",
+            "capabilities": capabilities or {},
+            "workspace_root": workspace_root,
+            "metadata": metadata or {},
+            "last_seen_at": now,
+        }
+        doc = self.runtimes.find_one_and_update(
+            {"runtime_id": cleaned_id},
+            {
+                "$set": update,
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        assert doc is not None
+        return self._public_runtime(doc)
+
+    def touch_runtime(self, runtime_id: str, *, status: str = "online") -> dict[str, Any]:
+        doc = self.runtimes.find_one_and_update(
+            {"runtime_id": runtime_id},
+            {"$set": {"status": status, "last_seen_at": utc_now()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is None:
+            raise KeyError(runtime_id)
+        return self._public_runtime(doc)
+
+    def mark_runtime_offline(self, runtime_id: str) -> dict[str, Any] | None:
+        doc = self.runtimes.find_one_and_update(
+            {"runtime_id": runtime_id},
+            {"$set": {"status": "offline", "last_seen_at": utc_now()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        return self._public_runtime(doc) if doc else None
+
+    def list_runtimes(self) -> list[dict[str, Any]]:
+        return [self._public_runtime(doc) for doc in self.runtimes.find().sort("last_seen_at", DESCENDING)]
+
+    def get_runtime(self, runtime_id: str) -> dict[str, Any] | None:
+        doc = self.runtimes.find_one({"runtime_id": runtime_id})
+        return self._public_runtime(doc) if doc else None
+
+    def _choose_runtime(self, runtime_id: str | None = None) -> str:
+        if runtime_id:
+            doc = self.runtimes.find_one({"runtime_id": runtime_id})
+            if doc is None:
+                raise KeyError(runtime_id)
+            return str(doc["runtime_id"])
+        doc = self.runtimes.find_one({"status": "online"}, sort=[("last_seen_at", DESCENDING)])
+        if doc is None:
+            raise RuntimeError("No online runtime is available.")
+        return str(doc["runtime_id"])
+
+    def create_challenge(
+        self,
+        *,
+        title: str,
+        description: str,
+        category: str,
+        challenge_type: str,
+        runtime_id: str | None,
+        handoff_urls: list[str],
+        settings: dict[str, Any] | None = None,
+        slug: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        start_agent: bool = True,
+    ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any] | None]:
+        normalized_type = challenge_type if challenge_type in {"single_agent", "constellation"} else "single_agent"
+        assigned_runtime = self._choose_runtime(runtime_id)
+        now = utc_now()
+        challenge_slug = slugify(slug or title)
+        doc = {
+            "slug": challenge_slug,
+            "title": title.strip() or challenge_slug,
+            "description": description.strip(),
+            "category": category.strip() or "misc",
+            "challenge_type": normalized_type,
+            "status": "queued" if start_agent else "created",
+            "runtime_id": assigned_runtime,
+            "handoff_urls": [value.strip() for value in handoff_urls if value.strip()],
+            "settings": settings or {},
+            "metadata": metadata or {},
+            "created_at": now,
+            "updated_at": now,
+        }
+        try:
+            result = self.challenges.insert_one(doc)
+        except DuplicateKeyError as exc:
+            raise ValueError(f"Challenge already exists: {challenge_slug}") from exc
+        doc["_id"] = result.inserted_id
+        challenge = self._public_challenge(doc)
+        if not start_agent:
+            return challenge, None, None
+        role = "solo" if normalized_type == "single_agent" else "master"
+        prompt = self.default_agent_prompt(challenge, role=role)
+        agent = self.create_agent(
+            challenge["id"],
+            role=role,
+            display_name=f"{challenge['title']} {role}",
+            prompt=prompt,
+            runtime_id=assigned_runtime,
+            model=(settings or {}).get("model"),
+        )
+        command = self.queue_runtime_command(
+            assigned_runtime,
+            command_type="spawn_agent",
+            challenge_id=challenge["id"],
+            agent_id=agent["id"],
+            payload={"challenge": challenge, "agent": agent, "files": self.list_challenge_files(challenge["id"])},
+        )
+        return self.get_challenge(challenge["id"]) or challenge, agent, command
+
+    def get_challenge(self, challenge_id_or_slug: str) -> dict[str, Any] | None:
+        query: dict[str, Any] = {"slug": challenge_id_or_slug}
+        try:
+            query = {"_id": ObjectId(challenge_id_or_slug)}
+        except Exception:
+            pass
+        doc = self.challenges.find_one(query)
+        return self._public_challenge(doc) if doc else None
+
+    def list_challenges(self) -> list[dict[str, Any]]:
+        return [self._public_challenge(doc) for doc in self.challenges.find().sort("created_at", DESCENDING)]
+
+    def update_challenge_status(self, challenge_id: str, status: str) -> dict[str, Any]:
+        doc = self.challenges.find_one_and_update(
+            {"_id": ObjectId(challenge_id)},
+            {"$set": {"status": status, "updated_at": utc_now()}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is None:
+            raise KeyError(challenge_id)
+        return self._public_challenge(doc)
+
+    def convert_challenge_to_constellation(self, challenge_id: str) -> tuple[dict[str, Any], dict[str, Any] | None]:
+        now = utc_now()
+        doc = self.challenges.find_one_and_update(
+            {"_id": ObjectId(challenge_id)},
+            {"$set": {"challenge_type": "constellation", "updated_at": now}},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is None:
+            raise KeyError(challenge_id)
+        agent_doc = self.agents.find_one({"challenge_id": challenge_id}, sort=[("created_at", ASCENDING)])
+        agent = None
+        if agent_doc is not None:
+            updated_agent = self.agents.find_one_and_update(
+                {"_id": agent_doc["_id"]},
+                {"$set": {"role": "master", "updated_at": now}},
+                return_document=ReturnDocument.AFTER,
+            )
+            agent = self._public_agent(updated_agent) if updated_agent else None
+        return self._public_challenge(doc), agent
+
+    def default_agent_prompt(self, challenge: dict[str, Any], *, role: str) -> str:
+        handoff = "\n".join(f"- {url}" for url in challenge.get("handoff_urls", [])) or "- none"
+        if role == "master":
+            role_text = "Plan the solve, coordinate any approved slave agents, and execute the highest-value path yourself."
+        elif role == "slave":
+            role_text = "Work on the assigned subtask, report concrete findings, and avoid duplicating other agents."
+        else:
+            role_text = "Plan and execute the solve path end to end."
+        return (
+            f"You are an OpenCROW Codex agent for challenge `{challenge['title']}`.\n\n"
+            f"Category: {challenge.get('category', 'misc')}\n"
+            f"Role: {role}\n\n"
+            f"Description:\n{challenge.get('description', '')}\n\n"
+            f"Handoff URLs:\n{handoff}\n\n"
+            f"{role_text}\n"
+            "Use installed OpenCROW skills and MCP tools first when they fit. "
+            "Keep findings and repeatable evidence in workspace files, and produce final artifacts when solved.\n"
+        )
+
+    def add_challenge_file(self, challenge_id: str, *, filename: str, data: bytes, content_type: str | None = None) -> dict[str, Any]:
+        if self.get_challenge(challenge_id) is None:
+            raise KeyError(challenge_id)
+        safe_name = filename.strip().replace("\\", "/").split("/")[-1] or "upload.bin"
+        guessed = content_type or mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
+        file_id = self.challenge_bucket.upload_from_stream(
+            safe_name,
+            data,
+            metadata={"challenge_id": challenge_id, "content_type": guessed},
+        )
+        doc = {
+            "challenge_id": challenge_id,
+            "name": safe_name,
+            "file_id": file_id,
+            "size": len(data),
+            "content_type": guessed,
+            "created_at": utc_now(),
+        }
+        result = self.challenge_files.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        return self._public_challenge_file(doc)
+
+    def list_challenge_files(self, challenge_id: str) -> list[dict[str, Any]]:
+        return [
+            self._public_challenge_file(doc)
+            for doc in self.challenge_files.find({"challenge_id": challenge_id}).sort("created_at", ASCENDING)
+        ]
+
+    def download_challenge_file(self, file_id: str) -> tuple[bytes, dict[str, Any]]:
+        grid_out = self.challenge_bucket.open_download_stream(ObjectId(file_id))
+        data = grid_out.read()
+        metadata = dict(grid_out.metadata or {})
+        metadata["filename"] = grid_out.filename
+        metadata["length"] = grid_out.length
+        return data, metadata
+
+    def create_agent(
+        self,
+        challenge_id: str,
+        *,
+        role: str,
+        display_name: str,
+        prompt: str,
+        runtime_id: str | None = None,
+        model: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        require_approval: bool = False,
+    ) -> dict[str, Any]:
+        challenge = self.get_challenge(challenge_id)
+        if challenge is None:
+            raise KeyError(challenge_id)
+        assigned_runtime = runtime_id or challenge.get("runtime_id")
+        if not assigned_runtime:
+            assigned_runtime = self._choose_runtime(None)
+        now = utc_now()
+        doc = {
+            "challenge_id": challenge["id"],
+            "runtime_id": assigned_runtime,
+            "role": role,
+            "display_name": display_name.strip() or f"{role} agent",
+            "status": "approval_required" if require_approval else "queued",
+            "codex_thread_id": None,
+            "workspace_path": None,
+            "model": model,
+            "prompt": prompt,
+            "last_response": None,
+            "metadata": metadata or {},
+            "created_at": now,
+            "updated_at": now,
+            "started_at": None,
+            "finished_at": None,
+        }
+        result = self.agents.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        agent = self._public_agent(doc)
+        self.record_agent_event(
+            challenge["id"],
+            agent_id=agent["id"],
+            runtime_id=assigned_runtime,
+            event_type="agent_spawn_requested" if require_approval else "agent_created",
+            payload=agent,
+        )
+        return agent
+
+    def list_agents(self, challenge_id: str) -> list[dict[str, Any]]:
+        return [self._public_agent(doc) for doc in self.agents.find({"challenge_id": challenge_id}).sort("created_at", ASCENDING)]
+
+    def get_agent(self, agent_id: str) -> dict[str, Any] | None:
+        try:
+            doc = self.agents.find_one({"_id": ObjectId(agent_id)})
+        except Exception:
+            return None
+        return self._public_agent(doc) if doc else None
+
+    def update_agent_state(
+        self,
+        agent_id: str,
+        *,
+        status: str | None = None,
+        codex_thread_id: str | None = None,
+        workspace_path: str | None = None,
+        last_response: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+        updates: dict[str, Any] = {"updated_at": now}
+        if status is not None:
+            updates["status"] = status
+            if status in {"starting", "running"}:
+                updates.setdefault("started_at", now)
+            if status in {"completed", "failed", "stopped", "interrupted"}:
+                updates["finished_at"] = now
+        if codex_thread_id is not None:
+            updates["codex_thread_id"] = codex_thread_id
+        if workspace_path is not None:
+            updates["workspace_path"] = workspace_path
+        if last_response is not None:
+            updates["last_response"] = last_response
+        if metadata is not None:
+            updates["metadata"] = metadata
+        doc = self.agents.find_one_and_update(
+            {"_id": ObjectId(agent_id)},
+            {"$set": updates},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is None:
+            raise KeyError(agent_id)
+        agent = self._public_agent(doc)
+        self.record_agent_event(
+            agent["challenge_id"],
+            agent_id=agent["id"],
+            runtime_id=agent.get("runtime_id"),
+            event_type="agent_state",
+            payload=agent,
+        )
+        return agent
+
+    def approve_agent(self, agent_id: str) -> dict[str, Any]:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            raise KeyError(agent_id)
+        if agent["status"] != "approval_required":
+            raise ValueError(f"Agent is not waiting for approval: {agent['status']}")
+        return self.update_agent_state(agent_id, status="queued")
+
+    def reject_agent(self, agent_id: str, *, reason: str | None = None) -> dict[str, Any]:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            raise KeyError(agent_id)
+        updated = self.update_agent_state(
+            agent_id,
+            status="rejected",
+            metadata={**agent.get("metadata", {}), "rejection_reason": reason or ""},
+        )
+        self.record_agent_event(
+            updated["challenge_id"],
+            agent_id=updated["id"],
+            runtime_id=updated.get("runtime_id"),
+            event_type="agent_rejected",
+            payload=updated,
+        )
+        return updated
+
+    def queue_runtime_command(
+        self,
+        runtime_id: str,
+        *,
+        command_type: str,
+        challenge_id: str | None = None,
+        agent_id: str | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+        doc = {
+            "runtime_id": runtime_id,
+            "command_type": command_type,
+            "challenge_id": challenge_id,
+            "agent_id": agent_id,
+            "payload": payload or {},
+            "status": "queued",
+            "created_at": now,
+            "updated_at": now,
+            "acknowledged_at": None,
+            "completed_at": None,
+            "error": None,
+        }
+        result = self.runtime_commands.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        return self._public_runtime_command(doc)
+
+    def list_runtime_commands(self, runtime_id: str, *, status: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {"runtime_id": runtime_id}
+        if status:
+            query["status"] = status
+        return [
+            self._public_runtime_command(doc)
+            for doc in self.runtime_commands.find(query).sort("created_at", ASCENDING).limit(max(1, min(limit, 500)))
+        ]
+
+    def update_runtime_command(
+        self,
+        command_id: str,
+        *,
+        status: str,
+        error: str | None = None,
+    ) -> dict[str, Any]:
+        now = utc_now()
+        updates: dict[str, Any] = {"status": status, "updated_at": now}
+        if status in {"acknowledged", "running"}:
+            updates["acknowledged_at"] = now
+        if status in {"completed", "failed", "cancelled"}:
+            updates["completed_at"] = now
+        if error is not None:
+            updates["error"] = error
+        doc = self.runtime_commands.find_one_and_update(
+            {"_id": ObjectId(command_id)},
+            {"$set": updates},
+            return_document=ReturnDocument.AFTER,
+        )
+        if doc is None:
+            raise KeyError(command_id)
+        return self._public_runtime_command(doc)
+
+    def record_agent_event(
+        self,
+        challenge_id: str,
+        *,
+        agent_id: str | None,
+        runtime_id: str | None,
+        event_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        doc = {
+            "challenge_id": challenge_id,
+            "agent_id": agent_id,
+            "runtime_id": runtime_id,
+            "event_type": event_type,
+            "payload": payload,
+            "created_at": utc_now(),
+        }
+        result = self.agent_events.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        return self._public_agent_event(doc)
+
+    def list_agent_events(
+        self,
+        *,
+        challenge_id: str | None = None,
+        agent_id: str | None = None,
+        limit: int = 200,
+    ) -> list[dict[str, Any]]:
+        query: dict[str, Any] = {}
+        if challenge_id:
+            query["challenge_id"] = challenge_id
+        if agent_id:
+            query["agent_id"] = agent_id
+        cursor = self.agent_events.find(query).sort("created_at", DESCENDING).limit(max(1, min(limit, 500)))
+        return [self._public_agent_event(doc) for doc in reversed(list(cursor))]
+
+    def add_agent_artifact(
+        self,
+        agent_id: str,
+        *,
+        filename: str,
+        data: bytes,
+        content_type: str | None = None,
+        artifact_type: str = "artifact",
+    ) -> dict[str, Any]:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            raise KeyError(agent_id)
+        safe_name = filename.strip().replace("\\", "/").split("/")[-1] or "artifact.bin"
+        guessed = content_type or mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
+        digest = hashlib.sha256(data).hexdigest()
+        file_id = self.agent_artifact_bucket.upload_from_stream(
+            safe_name,
+            data,
+            metadata={
+                "agent_id": agent["id"],
+                "challenge_id": agent["challenge_id"],
+                "runtime_id": agent.get("runtime_id"),
+                "content_type": guessed,
+                "sha256": digest,
+                "artifact_type": artifact_type,
+            },
+        )
+        doc = {
+            "agent_id": agent["id"],
+            "challenge_id": agent["challenge_id"],
+            "runtime_id": agent.get("runtime_id"),
+            "name": safe_name,
+            "file_id": file_id,
+            "size": len(data),
+            "sha256": digest,
+            "artifact_type": artifact_type,
+            "content_type": guessed,
+            "created_at": utc_now(),
+        }
+        result = self.agent_artifacts.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        return self._public_agent_artifact(doc)
+
+    def list_agent_artifacts(self, agent_id: str) -> list[dict[str, Any]]:
+        return [
+            self._public_agent_artifact(doc)
+            for doc in self.agent_artifacts.find({"agent_id": agent_id}).sort("created_at", ASCENDING)
+        ]
+
+    def download_agent_artifact(self, file_id: str) -> tuple[bytes, dict[str, Any]]:
+        grid_out = self.agent_artifact_bucket.open_download_stream(ObjectId(file_id))
+        data = grid_out.read()
+        metadata = dict(grid_out.metadata or {})
+        metadata["filename"] = grid_out.filename
+        metadata["length"] = grid_out.length
+        return data, metadata
 
     def _public_topic(self, doc: dict[str, Any]) -> dict[str, Any]:
         topic_slug = str(doc["slug"])
@@ -163,6 +692,118 @@ class ConstellationStorage:
             "event_type": doc["event_type"],
             "payload": doc["payload"],
             "created_at": isoformat(doc["created_at"]),
+        }
+
+    def _public_runtime(self, doc: dict[str, Any]) -> dict[str, Any]:
+        runtime_id = str(doc["runtime_id"])
+        return {
+            "id": runtime_id,
+            "runtime_id": runtime_id,
+            "display_name": doc.get("display_name", runtime_id),
+            "status": doc.get("status", "offline"),
+            "capabilities": doc.get("capabilities", {}),
+            "workspace_root": doc.get("workspace_root"),
+            "active_agent_count": self.agents.count_documents(
+                {"runtime_id": runtime_id, "status": {"$in": ["queued", "starting", "running", "interrupted"]}}
+            ),
+            "created_at": isoformat(doc.get("created_at")),
+            "last_seen_at": isoformat(doc.get("last_seen_at")),
+            "metadata": doc.get("metadata", {}),
+        }
+
+    def _public_challenge(self, doc: dict[str, Any]) -> dict[str, Any]:
+        challenge_id = public_object_id(doc["_id"])
+        return {
+            "id": challenge_id,
+            "slug": doc["slug"],
+            "title": doc.get("title", doc["slug"]),
+            "description": doc.get("description", ""),
+            "category": doc.get("category", "misc"),
+            "challenge_type": doc.get("challenge_type", "single_agent"),
+            "status": doc.get("status", "queued"),
+            "runtime_id": doc.get("runtime_id"),
+            "handoff_urls": list(doc.get("handoff_urls", [])),
+            "settings": doc.get("settings", {}),
+            "agent_count": self.agents.count_documents({"challenge_id": challenge_id}),
+            "file_count": self.challenge_files.count_documents({"challenge_id": challenge_id}),
+            "created_at": isoformat(doc.get("created_at")),
+            "updated_at": isoformat(doc.get("updated_at")),
+            "metadata": doc.get("metadata", {}),
+        }
+
+    def _public_challenge_file(self, doc: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": public_object_id(doc["_id"]),
+            "challenge_id": doc["challenge_id"],
+            "name": doc["name"],
+            "file_id": public_object_id(doc["file_id"]),
+            "size": int(doc.get("size", 0)),
+            "content_type": doc.get("content_type", "application/octet-stream"),
+            "created_at": isoformat(doc.get("created_at")),
+        }
+
+    def _public_agent(self, doc: dict[str, Any]) -> dict[str, Any]:
+        agent_id = public_object_id(doc["_id"])
+        return {
+            "id": agent_id,
+            "challenge_id": doc["challenge_id"],
+            "runtime_id": doc.get("runtime_id"),
+            "role": doc.get("role", "worker"),
+            "display_name": doc.get("display_name", "agent"),
+            "status": doc.get("status", "queued"),
+            "codex_thread_id": doc.get("codex_thread_id"),
+            "workspace_path": doc.get("workspace_path"),
+            "model": doc.get("model"),
+            "prompt": doc.get("prompt", ""),
+            "last_response": doc.get("last_response"),
+            "created_at": isoformat(doc.get("created_at")),
+            "updated_at": isoformat(doc.get("updated_at")),
+            "started_at": isoformat(doc.get("started_at")),
+            "finished_at": isoformat(doc.get("finished_at")),
+            "artifact_count": self.agent_artifacts.count_documents({"agent_id": agent_id}),
+            "metadata": doc.get("metadata", {}),
+        }
+
+    def _public_agent_artifact(self, doc: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": public_object_id(doc["_id"]),
+            "agent_id": doc["agent_id"],
+            "challenge_id": doc["challenge_id"],
+            "runtime_id": doc.get("runtime_id"),
+            "name": doc["name"],
+            "file_id": public_object_id(doc["file_id"]),
+            "size": int(doc.get("size", 0)),
+            "sha256": doc.get("sha256"),
+            "artifact_type": doc.get("artifact_type", "artifact"),
+            "content_type": doc.get("content_type", "application/octet-stream"),
+            "created_at": isoformat(doc.get("created_at")),
+        }
+
+    def _public_runtime_command(self, doc: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": public_object_id(doc["_id"]),
+            "runtime_id": doc["runtime_id"],
+            "command_type": doc["command_type"],
+            "status": doc.get("status", "queued"),
+            "challenge_id": doc.get("challenge_id"),
+            "agent_id": doc.get("agent_id"),
+            "payload": doc.get("payload", {}),
+            "created_at": isoformat(doc.get("created_at")),
+            "updated_at": isoformat(doc.get("updated_at")),
+            "acknowledged_at": isoformat(doc.get("acknowledged_at")),
+            "completed_at": isoformat(doc.get("completed_at")),
+            "error": doc.get("error"),
+        }
+
+    def _public_agent_event(self, doc: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": public_object_id(doc["_id"]),
+            "challenge_id": doc["challenge_id"],
+            "agent_id": doc.get("agent_id"),
+            "runtime_id": doc.get("runtime_id"),
+            "event_type": doc["event_type"],
+            "payload": doc.get("payload", {}),
+            "created_at": isoformat(doc.get("created_at")),
         }
 
     def _emit_broker_event(self, topic: str, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:

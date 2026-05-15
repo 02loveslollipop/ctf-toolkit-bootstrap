@@ -991,6 +991,17 @@
       "verify": {"kind": "command", "value": "opencrow-constellation-join"}
     },
     {
+      "id": "opencrow-constellation-runtime",
+      "display_name": "opencrow-constellation-runtime",
+      "toolbox": "opencrow-utility-toolbox",
+      "profiles": ["headless", "full"],
+      "summary": "Run the non-containerized Codex runtime service for dashboard-managed challenges.",
+      "homepage_url": "https://github.com/02loveslollipop/OpenCROW",
+      "license_url": "https://github.com/02loveslollipop/OpenCROW",
+      "install": {"kind": "direct", "handler": "opencrow-constellation-runtime"},
+      "verify": {"kind": "command", "value": "opencrow-constellation-runtime"}
+    },
+    {
       "id": "opencrow-constellation-admin",
       "display_name": "opencrow-constellation-admin",
       "toolbox": "opencrow-utility-toolbox",

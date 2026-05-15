@@ -1,9 +1,104 @@
 {% extends "base.html" %}
-{% block title %}Topics | OpenCROW Constellation{% endblock %}
+{% block title %}Dashboard | OpenCROW Constellation{% endblock %}
 {% block body %}
 <section class="grid">
   <section class="panel">
-    <h2>Create Topic</h2>
+    <h2>Create Challenge</h2>
+    <form method="post" action="{{ url_for('create_challenge') }}" class="stack" enctype="multipart/form-data">
+      <label>
+        <span>Title</span>
+        <input type="text" name="title" required>
+      </label>
+      <label>
+        <span>Slug</span>
+        <input type="text" name="slug" placeholder="optional-slug">
+      </label>
+      <label>
+        <span>Type</span>
+        <select name="challenge_type">
+          <option value="single_agent">Single agent</option>
+          <option value="constellation">Constellation</option>
+        </select>
+      </label>
+      <label>
+        <span>Runtime</span>
+        <select name="runtime_id">
+          <option value="">Latest online runtime</option>
+          {% for runtime in runtimes %}
+          <option value="{{ runtime.runtime_id }}">{{ runtime.display_name }} · {{ runtime.status }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Category</span>
+        <input type="text" name="category" value="misc">
+      </label>
+      <label>
+        <span>Model</span>
+        <input type="text" name="model" placeholder="runtime default">
+      </label>
+      <label>
+        <span>Description</span>
+        <textarea name="description" rows="6" required></textarea>
+      </label>
+      <label>
+        <span>Challenge Files</span>
+        <input type="file" name="files" multiple>
+      </label>
+      <label>
+        <span>Handoff URLs</span>
+        <textarea name="handoff_urls" rows="4" placeholder="One URL per line"></textarea>
+      </label>
+      <button type="submit">Create and start</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Runtime Fleet</h2>
+    {% if runtimes %}
+    <ul class="topic-list">
+      {% for runtime in runtimes %}
+      <li>
+        <strong>{{ runtime.display_name }}</strong>
+        <div class="meta">
+          <span>{{ runtime.runtime_id }}</span>
+          <span>{{ runtime.status }}</span>
+          <span>{{ runtime.active_agent_count }} active agents</span>
+          <span>{{ runtime.last_seen_at }}</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="subtle">No runtimes registered. Start one with <code>opencrow-constellation-runtime</code>.</p>
+    {% endif %}
+  </section>
+</section>
+
+<section class="grid topic-grid">
+  <section class="panel">
+    <h2>Challenges</h2>
+    {% if challenges %}
+    <ul class="topic-list">
+      {% for challenge in challenges %}
+      <li>
+        <a href="{{ url_for('challenge_detail', challenge_id=challenge.id) }}">{{ challenge.title }}</a>
+        <div class="meta">
+          <span>{{ challenge.slug }}</span>
+          <span>{{ challenge.challenge_type }}</span>
+          <span>{{ challenge.status }}</span>
+          <span>{{ challenge.agent_count }} agents</span>
+          <span>{{ challenge.runtime_id or "unassigned" }}</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="subtle">No dashboard-managed challenges yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel">
+    <h2>Create Legacy Topic</h2>
     <form method="post" action="{{ url_for('create_topic') }}" class="stack">
       <label>
         <span>Title</span>
@@ -29,7 +124,7 @@
     </form>
   </section>
   <section class="panel">
-    <h2>Topics</h2>
+    <h2>Legacy Topics</h2>
     {% if topics %}
     <ul class="topic-list">
       {% for topic in topics %}

@@ -64,6 +64,19 @@ OPERATIONS = [
     {"name": "constellation_master_release", "description": "Release master capability for the current topic member."},
     {"name": "constellation_artifact_sync", "description": "Push markdown document snapshots into the shared topic corpus."},
     {"name": "constellation_final_artifact_upload", "description": "Upload immutable final artifacts after flag recovery."},
+    {"name": "constellation_runtime_list", "description": "List dashboard runtimes and their health."},
+    {"name": "constellation_runtime_commands", "description": "List queued or historical commands for a runtime."},
+    {"name": "constellation_challenge_list", "description": "List dashboard-managed challenges."},
+    {"name": "constellation_challenge_create", "description": "Create a dashboard-managed challenge."},
+    {"name": "constellation_challenge_status", "description": "Inspect a dashboard-managed challenge."},
+    {"name": "constellation_challenge_convert", "description": "Convert a single-agent challenge to Constellation mode."},
+    {"name": "constellation_agent_list", "description": "List agents for a dashboard-managed challenge."},
+    {"name": "constellation_agent_spawn_request", "description": "Request or directly spawn an agent for a challenge."},
+    {"name": "constellation_agent_approve", "description": "Approve a pending agent spawn request."},
+    {"name": "constellation_agent_reject", "description": "Reject a pending agent spawn request."},
+    {"name": "constellation_agent_prompt", "description": "Queue a follow-up prompt for an agent."},
+    {"name": "constellation_agent_interrupt", "description": "Interrupt a running agent."},
+    {"name": "constellation_agent_events", "description": "Read event history for an agent or challenge."},
 ]
 
 
@@ -598,6 +611,95 @@ class ConstellationSessionManager:
             handoff_paths=handoffs,
         )
 
+    def list_runtimes(self) -> dict[str, Any]:
+        return self.client.list_runtimes()
+
+    def runtime_commands(self, runtime_id: str, *, status: str | None, limit: int) -> dict[str, Any]:
+        return self.client.runtime_commands(runtime_id, status=status, limit=limit)
+
+    def list_challenges(self) -> dict[str, Any]:
+        return self.client.list_challenges()
+
+    def create_challenge(
+        self,
+        *,
+        title: str,
+        description: str,
+        category: str,
+        challenge_type: str,
+        runtime_id: str | None,
+        handoff_urls: list[str],
+        model: str | None,
+        start_agent: bool,
+    ) -> dict[str, Any]:
+        settings = {"model": model} if model else None
+        return self.client.create_challenge(
+            title=title,
+            description=description,
+            category=category,
+            challenge_type=challenge_type,
+            runtime_id=runtime_id,
+            handoff_urls=handoff_urls,
+            settings=settings,
+            start_agent=start_agent,
+        )
+
+    def challenge_status(self, challenge_id: str) -> dict[str, Any]:
+        payload = self.client.get_challenge(challenge_id)
+        challenge = payload["challenge"]
+        return {
+            **payload,
+            "files": self.client.list_challenge_files(challenge["id"]).get("files", []),
+            "agents": self.client.list_agents(challenge["id"]).get("agents", []),
+            "events": self.client.challenge_events(challenge["id"], limit=100).get("events", []),
+        }
+
+    def convert_challenge(self, challenge_id: str) -> dict[str, Any]:
+        return self.client.convert_challenge_to_constellation(challenge_id)
+
+    def list_agents(self, challenge_id: str) -> dict[str, Any]:
+        return self.client.list_agents(challenge_id)
+
+    def spawn_agent(
+        self,
+        *,
+        challenge_id: str,
+        role: str,
+        display_name: str,
+        prompt: str | None,
+        runtime_id: str | None,
+        model: str | None,
+        require_approval: bool,
+    ) -> dict[str, Any]:
+        return self.client.create_agent(
+            challenge_id,
+            role=role,
+            display_name=display_name,
+            prompt=prompt,
+            runtime_id=runtime_id,
+            model=model,
+            require_approval=require_approval,
+        )
+
+    def approve_agent(self, agent_id: str) -> dict[str, Any]:
+        return self.client.approve_agent(agent_id)
+
+    def reject_agent(self, agent_id: str, *, reason: str | None) -> dict[str, Any]:
+        return self.client.reject_agent(agent_id, reason=reason)
+
+    def prompt_agent(self, agent_id: str, *, body: str) -> dict[str, Any]:
+        return self.client.prompt_agent(agent_id, body=body)
+
+    def interrupt_agent(self, agent_id: str) -> dict[str, Any]:
+        return self.client.interrupt_agent(agent_id)
+
+    def agent_events(self, *, agent_id: str | None, challenge_id: str | None, limit: int) -> dict[str, Any]:
+        if agent_id:
+            return self.client.agent_events(agent_id, limit=limit)
+        if challenge_id:
+            return self.client.challenge_events(challenge_id, limit=limit)
+        raise ValueError("agent_id or challenge_id is required.")
+
     def _require_subscription(self, topic: str) -> TopicSubscription:
         subscription = self.subscriptions.get(topic)
         if subscription is None:
@@ -955,6 +1057,229 @@ def constellation_final_artifact_upload(arguments: dict[str, object]) -> dict[st
     )
 
 
+def _platform_call(arguments: dict[str, object], *, operation: str, summary: str, call: Any) -> dict[str, object]:
+    try:
+        result = call()
+    except (ConstellationAPIError, KeyError, ValueError, OSError) as exc:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation=operation,
+            summary=f"{summary} failed.",
+            inputs=arguments,
+            stderr=str(exc),
+        )
+    return success_envelope(
+        toolbox=TOOLBOX_ID,
+        operation=operation,
+        summary=summary,
+        inputs=arguments,
+        observations=[result],
+    )
+
+
+def constellation_runtime_list(arguments: dict[str, object]) -> dict[str, object]:
+    return _platform_call(
+        arguments,
+        operation="constellation_runtime_list",
+        summary="Runtime fleet returned.",
+        call=lambda: _manager().list_runtimes(),
+    )
+
+
+def constellation_runtime_commands(arguments: dict[str, object]) -> dict[str, object]:
+    runtime_id = str(arguments.get("runtime_id", "")).strip()
+    status = str(arguments.get("status", "")).strip() or None
+    limit = int(arguments.get("limit", 100))
+    if not runtime_id:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation="constellation_runtime_commands",
+            summary="runtime_id is required.",
+            inputs=arguments,
+            stderr="Pass `runtime_id`.",
+            exit_code=2,
+        )
+    return _platform_call(
+        arguments,
+        operation="constellation_runtime_commands",
+        summary=f"Runtime commands returned for `{runtime_id}`.",
+        call=lambda: _manager().runtime_commands(runtime_id, status=status, limit=limit),
+    )
+
+
+def constellation_challenge_list(arguments: dict[str, object]) -> dict[str, object]:
+    return _platform_call(
+        arguments,
+        operation="constellation_challenge_list",
+        summary="Dashboard challenges returned.",
+        call=lambda: _manager().list_challenges(),
+    )
+
+
+def constellation_challenge_create(arguments: dict[str, object]) -> dict[str, object]:
+    title = str(arguments.get("title", "")).strip()
+    if not title:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation="constellation_challenge_create",
+            summary="title is required.",
+            inputs=arguments,
+            stderr="Pass `title`.",
+            exit_code=2,
+        )
+    handoff_urls = [str(value).strip() for value in arguments.get("handoff_urls", [])] if isinstance(arguments.get("handoff_urls"), list) else []
+    return _platform_call(
+        arguments,
+        operation="constellation_challenge_create",
+        summary=f"Challenge `{title}` created.",
+        call=lambda: _manager().create_challenge(
+            title=title,
+            description=str(arguments.get("description", "")).strip(),
+            category=str(arguments.get("category", "misc")).strip() or "misc",
+            challenge_type=str(arguments.get("challenge_type", "single_agent")).strip() or "single_agent",
+            runtime_id=str(arguments.get("runtime_id", "")).strip() or None,
+            handoff_urls=handoff_urls,
+            model=str(arguments.get("model", "")).strip() or None,
+            start_agent=bool(arguments.get("start_agent", True)),
+        ),
+    )
+
+
+def constellation_challenge_status(arguments: dict[str, object]) -> dict[str, object]:
+    challenge_id = str(arguments.get("challenge_id", "")).strip()
+    if not challenge_id:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation="constellation_challenge_status",
+            summary="challenge_id is required.",
+            inputs=arguments,
+            stderr="Pass `challenge_id`.",
+            exit_code=2,
+        )
+    return _platform_call(
+        arguments,
+        operation="constellation_challenge_status",
+        summary=f"Challenge `{challenge_id}` status returned.",
+        call=lambda: _manager().challenge_status(challenge_id),
+    )
+
+
+def constellation_challenge_convert(arguments: dict[str, object]) -> dict[str, object]:
+    challenge_id = str(arguments.get("challenge_id", "")).strip()
+    if not challenge_id:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation="constellation_challenge_convert",
+            summary="challenge_id is required.",
+            inputs=arguments,
+            stderr="Pass `challenge_id`.",
+            exit_code=2,
+        )
+    return _platform_call(
+        arguments,
+        operation="constellation_challenge_convert",
+        summary=f"Challenge `{challenge_id}` converted to Constellation mode.",
+        call=lambda: _manager().convert_challenge(challenge_id),
+    )
+
+
+def constellation_agent_list(arguments: dict[str, object]) -> dict[str, object]:
+    challenge_id = str(arguments.get("challenge_id", "")).strip()
+    if not challenge_id:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation="constellation_agent_list",
+            summary="challenge_id is required.",
+            inputs=arguments,
+            stderr="Pass `challenge_id`.",
+            exit_code=2,
+        )
+    return _platform_call(
+        arguments,
+        operation="constellation_agent_list",
+        summary=f"Agents returned for challenge `{challenge_id}`.",
+        call=lambda: _manager().list_agents(challenge_id),
+    )
+
+
+def constellation_agent_spawn_request(arguments: dict[str, object]) -> dict[str, object]:
+    challenge_id = str(arguments.get("challenge_id", "")).strip()
+    if not challenge_id:
+        return error_envelope(
+            toolbox=TOOLBOX_ID,
+            operation="constellation_agent_spawn_request",
+            summary="challenge_id is required.",
+            inputs=arguments,
+            stderr="Pass `challenge_id`.",
+            exit_code=2,
+        )
+    role = str(arguments.get("role", "slave")).strip() or "slave"
+    display_name = str(arguments.get("display_name", "")).strip() or f"{role} agent"
+    require_approval = bool(arguments.get("require_approval", True))
+    return _platform_call(
+        arguments,
+        operation="constellation_agent_spawn_request",
+        summary=f"Agent spawn {'requested' if require_approval else 'queued'} for `{challenge_id}`.",
+        call=lambda: _manager().spawn_agent(
+            challenge_id=challenge_id,
+            role=role,
+            display_name=display_name,
+            prompt=str(arguments.get("prompt", "")).strip() or None,
+            runtime_id=str(arguments.get("runtime_id", "")).strip() or None,
+            model=str(arguments.get("model", "")).strip() or None,
+            require_approval=require_approval,
+        ),
+    )
+
+
+def constellation_agent_approve(arguments: dict[str, object]) -> dict[str, object]:
+    agent_id = str(arguments.get("agent_id", "")).strip()
+    if not agent_id:
+        return error_envelope(toolbox=TOOLBOX_ID, operation="constellation_agent_approve", summary="agent_id is required.", inputs=arguments, stderr="Pass `agent_id`.", exit_code=2)
+    return _platform_call(arguments, operation="constellation_agent_approve", summary=f"Agent `{agent_id}` approved.", call=lambda: _manager().approve_agent(agent_id))
+
+
+def constellation_agent_reject(arguments: dict[str, object]) -> dict[str, object]:
+    agent_id = str(arguments.get("agent_id", "")).strip()
+    if not agent_id:
+        return error_envelope(toolbox=TOOLBOX_ID, operation="constellation_agent_reject", summary="agent_id is required.", inputs=arguments, stderr="Pass `agent_id`.", exit_code=2)
+    return _platform_call(
+        arguments,
+        operation="constellation_agent_reject",
+        summary=f"Agent `{agent_id}` rejected.",
+        call=lambda: _manager().reject_agent(agent_id, reason=str(arguments.get("reason", "")).strip() or None),
+    )
+
+
+def constellation_agent_prompt(arguments: dict[str, object]) -> dict[str, object]:
+    agent_id = str(arguments.get("agent_id", "")).strip()
+    body = str(arguments.get("body", "")).strip()
+    if not agent_id or not body:
+        return error_envelope(toolbox=TOOLBOX_ID, operation="constellation_agent_prompt", summary="agent_id and body are required.", inputs=arguments, stderr="Pass `agent_id` and `body`.", exit_code=2)
+    return _platform_call(arguments, operation="constellation_agent_prompt", summary=f"Prompt queued for `{agent_id}`.", call=lambda: _manager().prompt_agent(agent_id, body=body))
+
+
+def constellation_agent_interrupt(arguments: dict[str, object]) -> dict[str, object]:
+    agent_id = str(arguments.get("agent_id", "")).strip()
+    if not agent_id:
+        return error_envelope(toolbox=TOOLBOX_ID, operation="constellation_agent_interrupt", summary="agent_id is required.", inputs=arguments, stderr="Pass `agent_id`.", exit_code=2)
+    return _platform_call(arguments, operation="constellation_agent_interrupt", summary=f"Interrupt queued for `{agent_id}`.", call=lambda: _manager().interrupt_agent(agent_id))
+
+
+def constellation_agent_events(arguments: dict[str, object]) -> dict[str, object]:
+    agent_id = str(arguments.get("agent_id", "")).strip() or None
+    challenge_id = str(arguments.get("challenge_id", "")).strip() or None
+    limit = int(arguments.get("limit", 100))
+    if not agent_id and not challenge_id:
+        return error_envelope(toolbox=TOOLBOX_ID, operation="constellation_agent_events", summary="agent_id or challenge_id is required.", inputs=arguments, stderr="Pass `agent_id` or `challenge_id`.", exit_code=2)
+    return _platform_call(
+        arguments,
+        operation="constellation_agent_events",
+        summary="Agent event history returned.",
+        call=lambda: _manager().agent_events(agent_id=agent_id, challenge_id=challenge_id, limit=limit),
+    )
+
+
 def _read_topic_resource(uri: str, params: dict[str, str]) -> list[dict[str, object]]:
     topic = params["topic"]
     payload = _manager().client.get_topic(topic)
@@ -1123,6 +1448,128 @@ def build_server() -> PushStdioMCPServer:
                     },
                 },
                 handler=constellation_final_artifact_upload,
+            ),
+            MCPTool(
+                name="constellation_runtime_list",
+                description="List dashboard runtimes and their health.",
+                input_schema={"type": "object", "properties": {}},
+                handler=constellation_runtime_list,
+            ),
+            MCPTool(
+                name="constellation_runtime_commands",
+                description="List queued or historical commands for a runtime.",
+                input_schema={
+                    "type": "object",
+                    "required": ["runtime_id"],
+                    "properties": {
+                        "runtime_id": {"type": "string"},
+                        "status": {"type": "string"},
+                        "limit": {"type": "integer"},
+                    },
+                },
+                handler=constellation_runtime_commands,
+            ),
+            MCPTool(
+                name="constellation_challenge_list",
+                description="List dashboard-managed challenges.",
+                input_schema={"type": "object", "properties": {}},
+                handler=constellation_challenge_list,
+            ),
+            MCPTool(
+                name="constellation_challenge_create",
+                description="Create a dashboard-managed challenge.",
+                input_schema={
+                    "type": "object",
+                    "required": ["title"],
+                    "properties": {
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "category": {"type": "string"},
+                        "challenge_type": {"type": "string"},
+                        "runtime_id": {"type": "string"},
+                        "handoff_urls": {"type": "array", "items": {"type": "string"}},
+                        "model": {"type": "string"},
+                        "start_agent": {"type": "boolean"},
+                    },
+                },
+                handler=constellation_challenge_create,
+            ),
+            MCPTool(
+                name="constellation_challenge_status",
+                description="Inspect a dashboard-managed challenge.",
+                input_schema={"type": "object", "required": ["challenge_id"], "properties": {"challenge_id": {"type": "string"}}},
+                handler=constellation_challenge_status,
+            ),
+            MCPTool(
+                name="constellation_challenge_convert",
+                description="Convert a single-agent challenge to Constellation mode.",
+                input_schema={"type": "object", "required": ["challenge_id"], "properties": {"challenge_id": {"type": "string"}}},
+                handler=constellation_challenge_convert,
+            ),
+            MCPTool(
+                name="constellation_agent_list",
+                description="List agents for a dashboard-managed challenge.",
+                input_schema={"type": "object", "required": ["challenge_id"], "properties": {"challenge_id": {"type": "string"}}},
+                handler=constellation_agent_list,
+            ),
+            MCPTool(
+                name="constellation_agent_spawn_request",
+                description="Request or directly spawn an agent for a challenge.",
+                input_schema={
+                    "type": "object",
+                    "required": ["challenge_id"],
+                    "properties": {
+                        "challenge_id": {"type": "string"},
+                        "role": {"type": "string"},
+                        "display_name": {"type": "string"},
+                        "prompt": {"type": "string"},
+                        "runtime_id": {"type": "string"},
+                        "model": {"type": "string"},
+                        "require_approval": {"type": "boolean"},
+                    },
+                },
+                handler=constellation_agent_spawn_request,
+            ),
+            MCPTool(
+                name="constellation_agent_approve",
+                description="Approve a pending agent spawn request.",
+                input_schema={"type": "object", "required": ["agent_id"], "properties": {"agent_id": {"type": "string"}}},
+                handler=constellation_agent_approve,
+            ),
+            MCPTool(
+                name="constellation_agent_reject",
+                description="Reject a pending agent spawn request.",
+                input_schema={"type": "object", "required": ["agent_id"], "properties": {"agent_id": {"type": "string"}, "reason": {"type": "string"}}},
+                handler=constellation_agent_reject,
+            ),
+            MCPTool(
+                name="constellation_agent_prompt",
+                description="Queue a follow-up prompt for an agent.",
+                input_schema={
+                    "type": "object",
+                    "required": ["agent_id", "body"],
+                    "properties": {"agent_id": {"type": "string"}, "body": {"type": "string"}},
+                },
+                handler=constellation_agent_prompt,
+            ),
+            MCPTool(
+                name="constellation_agent_interrupt",
+                description="Interrupt a running agent.",
+                input_schema={"type": "object", "required": ["agent_id"], "properties": {"agent_id": {"type": "string"}}},
+                handler=constellation_agent_interrupt,
+            ),
+            MCPTool(
+                name="constellation_agent_events",
+                description="Read event history for an agent or challenge.",
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "agent_id": {"type": "string"},
+                        "challenge_id": {"type": "string"},
+                        "limit": {"type": "integer"},
+                    },
+                },
+                handler=constellation_agent_events,
             ),
         ]
     )

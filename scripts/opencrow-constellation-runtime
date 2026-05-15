@@ -8,4 +8,10 @@ while [[ -L "$SOURCE_PATH" ]]; do
   [[ "$SOURCE_PATH" != /* ]] && SOURCE_PATH="$SOURCE_DIR/$SOURCE_PATH"
 done
 SCRIPT_DIR="$(cd "$(dirname "$SOURCE_PATH")" && pwd)"
-exec python3 "$SCRIPT_DIR/opencrow_runtime_shim.py" exploit "$@"
+if [[ -d "$SCRIPT_DIR/constellation" ]]; then
+  PYTHON_ROOT="$SCRIPT_DIR"
+else
+  PYTHON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+
+PYTHONPATH="$PYTHON_ROOT${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m constellation.runtime "$@"
