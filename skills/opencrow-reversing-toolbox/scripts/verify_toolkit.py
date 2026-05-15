@@ -53,12 +53,16 @@ def ghidra_install_dir() -> str | None:
 def r2ghidra_dec_available() -> bool:
     if shutil.which("r2") is None:
         return False
-    result = subprocess.run(
-        ["r2", "-q", "-e", "scr.color=0", "-c", "L~ghidra", "-"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["r2", "-q", "-e", "scr.color=0", "-c", "L~ghidra", "malloc://1"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0 and bool(result.stdout.strip())
 
 

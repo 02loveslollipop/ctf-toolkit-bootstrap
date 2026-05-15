@@ -7,7 +7,7 @@ import base64
 import json
 import secrets
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from urllib.parse import quote, urlsplit
 
@@ -1055,27 +1055,9 @@ def main() -> int:
     args = parse_args()
     settings = load_backend_settings()
     if args.host:
-        settings = BackendSettings(
-            mongo_uri=settings.mongo_uri,
-            mongo_db_name=settings.mongo_db_name,
-            listen_host=args.host,
-            listen_port=args.port or settings.listen_port,
-            system_tokens=settings.system_tokens,
-            broker_event_ttl_hours=settings.broker_event_ttl_hours,
-            allowed_ws_origins=settings.allowed_ws_origins,
-            ui_shared_secret=settings.ui_shared_secret,
-        )
+        settings = replace(settings, listen_host=args.host, listen_port=args.port or settings.listen_port)
     elif args.port:
-        settings = BackendSettings(
-            mongo_uri=settings.mongo_uri,
-            mongo_db_name=settings.mongo_db_name,
-            listen_host=settings.listen_host,
-            listen_port=args.port,
-            system_tokens=settings.system_tokens,
-            broker_event_ttl_hours=settings.broker_event_ttl_hours,
-            allowed_ws_origins=settings.allowed_ws_origins,
-            ui_shared_secret=settings.ui_shared_secret,
-        )
+        settings = replace(settings, listen_port=args.port)
     storage = ConstellationStorage(settings)
     storage.ensure_indexes()
     app_state = AppState(settings=settings, storage=storage)

@@ -1364,6 +1364,7 @@ def install_opencrow_python_command(
     launcher_script: str,
     support_files: list[str] | None = None,
     completion_script: str | None = None,
+    preserve_support_paths: bool = False,
 ) -> None:
     source_dir = ROOT_DIR / "scripts"
     install_dir = ctx.target_home / f".local/opt/{install_name}"
@@ -1385,11 +1386,16 @@ def install_opencrow_python_command(
         source_path = source_dir / support_file
         if not source_path.exists():
             source_path = ROOT_DIR / support_file
-        destination_name = source_path.name
+        relative_support_path = Path(support_file) if preserve_support_paths else Path(source_path.name)
+        destination_path = install_dir / relative_support_path
         if source_path.is_dir():
-            run_as_target(ctx, ["rm", "-rf", str(install_dir / destination_name)])
-            run_as_target(ctx, ["cp", "-R", str(source_path), str(install_dir / destination_name)])
+            run_as_target(ctx, ["rm", "-rf", str(destination_path)])
+            if destination_path.parent != install_dir:
+                run_as_target(ctx, ["mkdir", "-p", str(destination_path.parent)])
+            run_as_target(ctx, ["cp", "-R", str(source_path), str(destination_path)])
             continue
+        if destination_path.parent != install_dir:
+            run_as_target(ctx, ["mkdir", "-p", str(destination_path.parent)])
         run_as_target(
             ctx,
             [
@@ -1397,7 +1403,7 @@ def install_opencrow_python_command(
                 "-m",
                 "644",
                 str(source_path),
-                str(install_dir / destination_name),
+                str(destination_path),
             ],
         )
     run_as_target(
@@ -1780,7 +1786,13 @@ ln -sfn "$launcher" {shlex.quote(str(ctx.target_home / '.local/bin/autopsy'))}
             install_name="opencrow-reversing-mcp",
             python_script="opencrow_reversing_mcp.py",
             launcher_script="opencrow-reversing-mcp",
-            support_files=["opencrow_mcp_core.py", "opencrow_ctf_mcp_common.py"],
+            support_files=[
+                "opencrow_mcp_core.py",
+                "opencrow_ctf_mcp_common.py",
+                "opencrow_reversing_worker.py",
+                "ghidra/OpenCrowDecompileFunction.java",
+            ],
+            preserve_support_paths=True,
         )
         return
     if handler == "opencrow-network-mcp":

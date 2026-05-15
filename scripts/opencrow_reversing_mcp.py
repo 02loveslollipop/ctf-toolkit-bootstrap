@@ -171,7 +171,7 @@ def _run_worker(operation: str, payload: JSON, *, env_name: str, cwd: str | None
 def _r2ghidra_dec_available() -> bool:
     if not command_exists("r2"):
         return False
-    result = run_command(["r2", "-q", "-e", "scr.color=0", "-c", "L~ghidra", "-"], timeout_sec=30)
+    result = run_command(["r2", "-q", "-e", "scr.color=0", "-c", "L~ghidra", "malloc://1"], timeout_sec=30)
     return result["ok"] and bool(result["stdout"].strip())
 
 

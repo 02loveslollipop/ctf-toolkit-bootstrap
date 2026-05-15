@@ -62,11 +62,15 @@ def default_ws_base_from_api(api_base_url: str) -> str:
     return urlunsplit((scheme, parts.netloc, "", "", ""))
 
 
-def parse_token_list(raw: str | None) -> tuple[str, ...]:
+def parse_token_list(raw: Any) -> tuple[str, ...]:
     if raw is None:
         return ()
-    values = tuple(token.strip() for token in raw.split(",") if token.strip())
-    return values
+    if isinstance(raw, (list, tuple, set)):
+        return tuple(str(token).strip() for token in raw if str(token).strip())
+    if isinstance(raw, str):
+        return tuple(token.strip() for token in raw.split(",") if token.strip())
+    text = str(raw).strip()
+    return (text,) if text else ()
 
 
 @dataclass(frozen=True)
@@ -202,7 +206,7 @@ def load_backend_settings() -> BackendSettings:
     if raw_tokens is None:
         raw_tokens = os.environ.get("OPENCROW_CONSTELLATION_SYSTEM_TOKEN")
     if raw_tokens is None:
-        raw_tokens = str(config.get("system_tokens", DEFAULT_DEVELOPMENT_TOKEN))
+        raw_tokens = config.get("system_tokens", DEFAULT_DEVELOPMENT_TOKEN)
 
     tokens = parse_token_list(raw_tokens)
     if not tokens:
@@ -251,13 +255,11 @@ def load_backend_settings() -> BackendSettings:
             )
         ),
         allowed_ws_origins=parse_token_list(
-            str(
-                _env_or_config(
-                    "OPENCROW_CONSTELLATION_ALLOWED_WS_ORIGINS",
-                    config,
-                    "allowed_ws_origins",
-                    "http://127.0.0.1:8788,http://localhost:8788",
-                )
+            _env_or_config(
+                "OPENCROW_CONSTELLATION_ALLOWED_WS_ORIGINS",
+                config,
+                "allowed_ws_origins",
+                "http://127.0.0.1:8788,http://localhost:8788",
             )
         ),
         ui_shared_secret=str(secret)

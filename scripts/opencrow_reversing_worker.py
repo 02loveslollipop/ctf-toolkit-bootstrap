@@ -56,6 +56,17 @@ def load_config(path: str) -> JSON:
     return payload
 
 
+def read_file_region(path: Path, offset: int, size: int) -> bytes:
+    if offset < 0:
+        raise ValueError(f"Invalid file offset: {offset}")
+    with path.open("rb") as handle:
+        handle.seek(offset)
+        data = handle.read(size)
+    if len(data) != size:
+        raise ValueError(f"Requested {size} bytes at file offset {offset:#x}, got {len(data)} bytes.")
+    return data
+
+
 def normalize_arch(value: Any) -> str:
     text = str(value or "").strip().lower()
     aliases = {
@@ -94,9 +105,7 @@ def read_blob_bytes(config: JSON) -> tuple[bytes, JSON]:
     if binary is None:
         raise ValueError(f"Failed to parse binary: {path}")
     offset = int(binary.virtual_address_to_offset(start_address))
-    data = path.read_bytes()[offset : offset + size]
-    if len(data) != size:
-        raise ValueError(f"Requested {size} bytes at VA {start_address:#x}, got {len(data)} bytes.")
+    data = read_file_region(path, offset, size)
     return data, {
         "source": "binary",
         "path": str(path),
@@ -141,9 +150,7 @@ def run_read_data(config: JSON) -> JSON:
     if binary is None:
         raise ValueError(f"Failed to parse binary: {path}")
     offset = int(binary.virtual_address_to_offset(virtual_address))
-    raw = path.read_bytes()[offset : offset + size]
-    if len(raw) != size:
-        raise ValueError(f"Requested {size} bytes at VA {virtual_address:#x}, got {len(raw)} bytes.")
+    raw = read_file_region(path, offset, size)
 
     if output_format == "bytes":
         value: Any = list(raw)
@@ -320,7 +327,6 @@ def encode_argument_blob(value: Any) -> bytes:
 
 
 def emulate_apply_arguments(mu: Any, profile: JSON, arguments: list[Any], allocator: list[int], stack_pointer: int) -> int:
-    pointer_values: list[int] = []
     integer_values: list[int] = []
     for item in arguments:
         if isinstance(item, dict) and str(item.get("type", "")).strip().lower() == "int":
@@ -334,7 +340,6 @@ def emulate_apply_arguments(mu: Any, profile: JSON, arguments: list[Any], alloca
         allocator[0] += align_up(len(blob), 0x10)
         mu.mem_write(address, blob)
         integer_values.append(address)
-        pointer_values.append(address)
 
     arg_regs = profile["arg_regs"]
     if arg_regs:
@@ -353,13 +358,11 @@ def emulate_apply_arguments(mu: Any, profile: JSON, arguments: list[Any], alloca
                 mu.mem_write(cursor, int(value).to_bytes(width, "little"))
                 cursor += width
     else:
-        cursor = stack_pointer
-        values = list(reversed(integer_values))
-        for value in values:
-            cursor -= 4
+        # x86 function entry expects the return address at SP and stack args above it.
+        cursor = stack_pointer + 4
+        for value in integer_values:
             mu.mem_write(cursor, int(value).to_bytes(4, "little"))
-        mu.reg_write(profile["sp"], cursor)
-        stack_pointer = cursor
+            cursor += 4
     return stack_pointer
 
 
@@ -487,7 +490,11 @@ def run_symbolic_execute(config: JSON) -> JSON:
             raise ValueError(f"Input file does not exist: {path}")
         project = angr.Project(str(path), auto_load_libs=False)
         start = parse_int(function_address_value or entry_address_value, default=int(project.entry))
-        source = {"source": "binary", "path": str(path), "base_address": base_address}
+        main_object = project.loader.main_object
+        loaded_base_address = int(
+            getattr(main_object, "mapped_base", getattr(main_object, "min_addr", project.entry))
+        )
+        source = {"source": "binary", "path": str(path), "base_address": loaded_base_address}
 
     state = project.factory.blank_state(
         addr=start,

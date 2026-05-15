@@ -2,9 +2,37 @@
 
 Open Codex Runtime for Offensive Workflows.
 
-OpenCROW bootstraps a CTF workstation around an existing Anaconda or Miniconda installation, then syncs the repo-managed Codex skills into `~/.codex/skills`. The current implementation is catalog-driven, stateful, backed by a Python Typer CLI, and able to install a broad headless toolbox set plus most full-profile tools directly.
+OpenCROW is an agentic AI orchestration framework for offensive security and CTF workflows. It bootstraps a local execution runtime around an existing Anaconda or Miniconda installation, syncs repo-managed Codex skills into `~/.codex/skills`, installs the underlying execution stack those agents need, and exposes provider-neutral stdio MCP servers so agents can work through typed interfaces instead of ad hoc shell glue.
 
-OpenCROW now ships provider-neutral stdio MCP servers for every current toolbox plus the I/O helpers, with the shared contract defined in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
+The project is structured around three layers:
+
+- workflow entrypoints such as `opencrow-autosetup` and `opencrow-exploit` that launch reconnaissance and solve agents inside the current workspace
+- OpenCROW Constellation, the multi-agent coordination layer for shared topics, directives, corpus sync, live chat, and immutable final artifacts
+- toolbox and I/O MCP servers that give those agents typed access to crypto, pwn, reversing, network, web, forensics, stego, OSINT, utility, SSH, TCP, Minecraft, and coordination surfaces
+
+OpenCROW now ships provider-neutral stdio MCP servers across that runtime surface, with the shared contract defined in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
+
+## OpenCROW as a Framework
+
+OpenCROW is not just a package installer. The intended operating model is:
+
+- initialize or update the local agent runtime with the catalog-driven installer
+- seed a workspace and launch a reconnaissance pass with `opencrow-autosetup`
+- continue into the solve phase with `opencrow-exploit`
+- coordinate multiple agents and workspaces through OpenCROW Constellation when a challenge needs parallel work
+- let every agent use typed MCP tools and synced skills instead of bespoke one-off shell scripts
+
+## OpenCROW Constellation
+
+OpenCROW Constellation is the coordination core of the framework. It turns a challenge into a shared topic that agents can join from separate workspaces while sharing:
+
+- topic metadata and handoff URLs
+- live chat, broadcasts, and master directives
+- synced markdown findings and changelog corpus
+- resumable topic identity and Codex session tracking
+- immutable final artifacts such as `writeup.md`, solver files, and verified flags
+
+Constellation ships as a stdio MCP client plus a Tornado backend, Flask UI, Mongo-backed event store, and GridFS artifact layer.
 
 ## Requirements
 
@@ -18,7 +46,7 @@ If Conda is missing, the installer stops and prints official download links:
 - Miniconda: <https://docs.conda.io/en/latest/miniconda.html>
 - Anaconda: <https://www.anaconda.com/download>
 
-## Installer Model
+## Installer and Runtime Model
 
 OpenCROW now resolves installs from the machine-readable catalog at `scripts/tool_catalog.json`.
 
@@ -45,9 +73,11 @@ Current profiles:
 - `headless`: installs the CLI and automation-friendly tool set
 - `full`: includes the headless set plus GUI/heavier tools such as OWASP ZAP, Autopsy, StegSolve, OpenStego, and theHarvester
 
-## Implemented Toolboxes
+## Agent Execution Surface
 
-The current phase 1 implementation covers:
+The current runtime surfaces below are execution backends for agents. The toolboxes matter because they give the orchestration layer deterministic capabilities to call.
+
+Current toolbox coverage:
 
 - `opencrow-crypto-toolbox`: `z3-solver`, `fpylll`, `pycryptodome`, `hashcat`, `john`, `factordb-pycli`
 - `opencrow-pwn-toolbox`: `pwntools`, `checksec`, `gdb`, `gdbserver`, `patchelf`, `qemu-user`, `qemu-user-static`, `nasm`, `gcc`, `pwninit`, `pwndbg`, `seccomp-tools`, `one_gadget`
@@ -82,6 +112,9 @@ I/O MCP servers:
 - `opencrow-netcat-mcp`
 - `opencrow-ssh-mcp`
 - `opencrow-minecraft-mcp`
+
+Coordination MCP servers:
+
 - `opencrow-constellation-mcp`
 
 Tracked as manual full-profile steps today:
@@ -107,9 +140,9 @@ The current OpenCROW toolbox stack credits the upstream projects it installs or 
 - `volatility3`, `exiftool`, `foremost`, `steghide`, `zsteg`, `shodan`, `sherlock`, `waybackpy`
 - `jq`, `yq`, `xxd`, `tmux`, `screen`, `ripgrep`, `fzf`
 
-## Codex Skills
+## Agent Skills and MCP Surface
 
-Repo-managed skills synced into `~/.codex/skills`:
+Repo-managed agent skills synced into `~/.codex/skills`:
 
 - `opencrow-crypto-toolbox`
 - `opencrow-pwn-toolbox`
@@ -160,7 +193,7 @@ Installed toolbox MCP commands:
 
 ## MCP Architecture
 
-OpenCROW toolbox MCP servers follow one shared contract:
+OpenCROW MCP servers are the typed execution layer underneath the orchestration framework. The toolbox, I/O, and Constellation MCP surfaces follow one shared contract:
 
 - one stdio MCP server per toolbox
 - the same contract also applies to session-oriented I/O helpers
@@ -173,9 +206,9 @@ OpenCROW toolbox MCP servers follow one shared contract:
 
 Architecture details and contract rules live in [doc/MCP_ARCHITECTURE.md](doc/MCP_ARCHITECTURE.md).
 
-## OpenCROW Constellation
+## OpenCROW Constellation Details
 
-OpenCROW Constellation is a new topic-oriented coordination extension for multi-agent CTF work.
+OpenCROW Constellation is the multi-agent coordination runtime for topic-oriented CTF work.
 
 Shipped surfaces:
 
@@ -230,7 +263,7 @@ bash ./scripts/sync_gemini_mcp_config.sh
 
 ## `opencrow-autosetup`
 
-`opencrow-autosetup` is an installed CLI utility from the utility toolbox. It seeds a challenge workspace with reconnaissance artifacts and then launches a nested Codex pass that only performs challenge reconnaissance.
+`opencrow-autosetup` is the reconnaissance orchestration entrypoint. It seeds a challenge workspace with reconnaissance artifacts and then launches a nested Codex pass dedicated to the recon phase.
 
 Generated artifacts:
 
@@ -282,7 +315,7 @@ opencrow-autosetup --disable-sandbox --ack-missing-description
 
 ## `opencrow-exploit`
 
-`opencrow-exploit` is the follow-up CLI utility for the solve phase. It reads the current workspace handoff artifacts, builds a prompt for the exploitation agent, and launches Codex in the current directory.
+`opencrow-exploit` is the solve-phase orchestration entrypoint. It reads the current workspace handoff artifacts, builds a prompt for the exploitation agent, and launches Codex in the current directory.
 
 Behavior:
 
@@ -306,7 +339,7 @@ opencrow-exploit --disable-sandbox
 
 ## `opencrow-constellation-join`
 
-`opencrow-constellation-join` attaches the current workspace to a Constellation topic, writes the generated prompt to `.opencrow-constellation/generated-prompt.md`, starts the markdown watcher, and launches a nested Codex session in the same directory.
+`opencrow-constellation-join` is the distributed-agent entrypoint for Constellation. It attaches the current workspace to a Constellation topic, writes the generated prompt to `.opencrow-constellation/generated-prompt.md`, starts the markdown watcher, and launches a nested Codex session in the same directory.
 
 Examples:
 
@@ -329,7 +362,7 @@ opencrow-constellation-admin challenge-web-2 s8eZ8zKQf0ExampleToken
 
 ## `opencrow-constellation-client`
 
-`opencrow-constellation-client` is the single installer-facing entry for the Constellation client bundle. It dispatches to the existing Constellation commands so the installer can expose one tool without hiding the lower-level entrypoints.
+`opencrow-constellation-client` is the installer-facing entry for the Constellation coordination bundle. It dispatches to the existing Constellation commands so the installer can expose one orchestration surface without hiding the lower-level entrypoints.
 
 ```bash
 opencrow-constellation-client join challenge-crypto-1

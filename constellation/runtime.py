@@ -111,7 +111,7 @@ class RuntimeSocket:
                 "metadata": {"pid": os.getpid(), "hostname": socket.gethostname()},
             }
         )
-        threading.Thread(target=self._heartbeat_loop, daemon=True).start()
+        threading.Thread(target=self._heartbeat_loop, args=(_ws,), daemon=True).start()
 
     def _on_message(self, _ws: websocket.WebSocketApp, message: str) -> None:
         try:
@@ -129,10 +129,16 @@ class RuntimeSocket:
 
     def _on_close(self, _ws: websocket.WebSocketApp, code: int | None, reason: str | None) -> None:
         print(f"[opencrow-runtime] websocket closed: {code} {reason}", flush=True)
+        with self.ws_lock:
+            if self.ws is _ws:
+                self.ws = None
 
-    def _heartbeat_loop(self) -> None:
-        while self.ws is not None:
+    def _heartbeat_loop(self, ws: websocket.WebSocketApp) -> None:
+        while True:
             time.sleep(15)
+            with self.ws_lock:
+                if self.ws is not ws:
+                    return
             try:
                 self._send({"action": "heartbeat"})
             except Exception:
