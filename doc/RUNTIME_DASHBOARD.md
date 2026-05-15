@@ -7,6 +7,8 @@ C4/class/sequence diagrams, see
 [RUNTIME_DASHBOARD_ARCHITECTURE.md](RUNTIME_DASHBOARD_ARCHITECTURE.md).
 For the three-category runtime validation run, see
 [RUNTIME_DEEP_SMOKE_TEST.md](RUNTIME_DEEP_SMOKE_TEST.md).
+For the real AlpacaHack solve and writeup artifact validation, see
+[RUNTIME_WRITEUP_SOLVE_TEST.md](RUNTIME_WRITEUP_SOLVE_TEST.md).
 
 ## Runtime Model
 
