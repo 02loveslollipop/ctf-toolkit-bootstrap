@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import mimetypes
 import socket
 from dataclasses import dataclass
 from pathlib import Path
@@ -185,7 +186,8 @@ class ConstellationAPIClient:
             for path in paths:
                 handle = path.open("rb")
                 opened.append(handle)
-                files.append(("file", (path.name, handle, "application/octet-stream")))
+                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                files.append(("file", (path.name, handle, content_type)))
             response = self._request("POST", f"/challenges/{challenge_id}/files", files=files)
             payload = response.json()
             if not isinstance(payload, dict):
@@ -224,6 +226,30 @@ class ConstellationAPIClient:
 
     def agent_events(self, agent_id: str, *, limit: int = 200) -> dict[str, Any]:
         return self._json("GET", f"/agents/{agent_id}/events?limit={limit}")
+
+    def list_agent_artifacts(self, agent_id: str) -> dict[str, Any]:
+        return self._json("GET", f"/agents/{agent_id}/artifacts")
+
+    def upload_agent_artifacts(self, agent_id: str, paths: list[Path], *, artifact_type: str = "artifact") -> dict[str, Any]:
+        files: list[tuple[str, tuple[str, Any, str]]] = []
+        opened: list[Any] = []
+        try:
+            for path in paths:
+                handle = path.open("rb")
+                opened.append(handle)
+                content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+                files.append(("file", (path.name, handle, content_type)))
+            response = self._request("POST", f"/agents/{agent_id}/artifacts", data={"artifact_type": artifact_type}, files=files)
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise ConstellationAPIError(f"Unexpected artifact upload payload: {payload!r}")
+            return payload
+        finally:
+            for handle in opened:
+                handle.close()
+
+    def download_agent_artifact(self, file_id: str) -> requests.Response:
+        return self._request("GET", f"/agent-artifacts/{file_id}", stream=True)
 
     def challenge_events(self, challenge_id: str, *, limit: int = 200) -> dict[str, Any]:
         return self._json("GET", f"/challenges/{challenge_id}/events?limit={limit}")

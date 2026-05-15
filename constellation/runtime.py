@@ -282,6 +282,7 @@ class RuntimeSocket:
                     "workspace_path": str(workspace),
                 }
             )
+            self._upload_writeup_artifacts(agent_id=agent_id, challenge_id=challenge_id, workspace=workspace)
         except Exception:
             raise
 
@@ -358,6 +359,35 @@ class RuntimeSocket:
             if isinstance(text, str) and text.strip():
                 return text
         return None
+
+    def _upload_writeup_artifacts(self, *, agent_id: str, challenge_id: str, workspace: Path) -> None:
+        names = {"writeup.md", "WRITEUP.md", "solution.md", "SOLUTION.md"}
+        candidates = sorted(
+            path for path in workspace.rglob("*") if path.is_file() and path.name in names and path.stat().st_size <= 2_000_000
+        )
+        if not candidates:
+            return
+        try:
+            payload = self.client.upload_agent_artifacts(agent_id, candidates, artifact_type="writeup")
+            self._send(
+                {
+                    "action": "agent_event",
+                    "challenge_id": challenge_id,
+                    "agent_id": agent_id,
+                    "event_type": "writeup_artifacts_uploaded",
+                    "payload": {"artifacts": payload.get("artifacts", [])},
+                }
+            )
+        except Exception as exc:
+            self._send(
+                {
+                    "action": "agent_event",
+                    "challenge_id": challenge_id,
+                    "agent_id": agent_id,
+                    "event_type": "writeup_artifacts_upload_failed",
+                    "payload": {"error": str(exc), "candidate_count": len(candidates)},
+                }
+            )
 
     def _notification_payload(self, notification: Any) -> dict[str, Any]:
         method = getattr(notification, "method", None)

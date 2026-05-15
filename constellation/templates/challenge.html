@@ -57,6 +57,20 @@
         {% if agent.last_response %}
         <pre>{{ agent.last_response }}</pre>
         {% endif %}
+        {% set artifacts = artifacts_by_agent.get(agent.id, []) %}
+        {% if artifacts %}
+        <div class="artifact-list">
+          <strong>Artifacts</strong>
+          <ul class="doc-list offset-list">
+            {% for artifact in artifacts %}
+            <li>
+              <a href="{{ url_for('download_agent_artifact', file_id=artifact.file_id) }}">{{ artifact.name }}</a>
+              <span class="subtle">{{ artifact.artifact_type }} · {{ artifact.size }} bytes · {{ artifact.created_at }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
         {% if agent.status == "approval_required" %}
         <div class="button-row">
           <form method="post" action="{{ url_for('approve_agent', agent_id=agent.id) }}">

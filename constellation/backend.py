@@ -349,6 +349,43 @@ class AgentEventsHandler(BaseHandler):
         self.write_json({"ok": True, "events": self.app_state.storage.list_agent_events(agent_id=agent["id"], limit=limit)})
 
 
+class AgentArtifactsHandler(BaseHandler):
+    def get(self, agent_id: str) -> None:
+        agent = self.app_state.storage.get_agent(agent_id)
+        if agent is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        self.write_json({"ok": True, "artifacts": self.app_state.storage.list_agent_artifacts(agent["id"])})
+
+    def post(self, agent_id: str) -> None:
+        agent = self.app_state.storage.get_agent(agent_id)
+        if agent is None:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent: {agent_id}")
+        artifact_type = self.get_body_argument("artifact_type", default="artifact").strip() or "artifact"
+        uploaded: list[dict[str, Any]] = []
+        for parts in self.request.files.values():
+            for part in parts:
+                uploaded.append(
+                    self.app_state.storage.add_agent_artifact(
+                        agent["id"],
+                        filename=part.get("filename", "artifact.bin"),
+                        data=part.get("body", b""),
+                        content_type=part.get("content_type"),
+                        artifact_type=artifact_type,
+                    )
+                )
+        if not uploaded:
+            raise tornado.web.HTTPError(400, reason="At least one uploaded artifact is required.")
+        for artifact in uploaded:
+            self.app_state.storage.record_agent_event(
+                agent["challenge_id"],
+                agent_id=agent["id"],
+                runtime_id=agent.get("runtime_id"),
+                event_type="agent_artifact",
+                payload=artifact,
+            )
+        self.write_json({"ok": True, "artifacts": uploaded}, status=201)
+
+
 class AgentPromptHandler(BaseHandler):
     def post(self, agent_id: str) -> None:
         payload = self.read_json_body()
@@ -689,6 +726,22 @@ class ChallengeFileDownloadHandler(BaseHandler):
         self.finish(data)
 
 
+class AgentArtifactDownloadHandler(BaseHandler):
+    def get(self, file_id: str) -> None:
+        try:
+            data, metadata = self.app_state.storage.download_agent_artifact(file_id)
+        except Exception as exc:
+            raise tornado.web.HTTPError(404, reason=f"Unknown agent artifact: {file_id}") from exc
+        content_type = str(metadata.get("content_type", "application/octet-stream"))
+        filename = _safe_download_filename(str(metadata.get("filename", file_id)))
+        self.set_header("Content-Type", content_type)
+        self.set_header(
+            "Content-Disposition",
+            f"attachment; filename={json.dumps(filename)}; filename*=UTF-8''{quote(filename)}",
+        )
+        self.finish(data)
+
+
 class RuntimeControlWebSocket(tornado.websocket.WebSocketHandler):
     def initialize(self, app_state: AppState) -> None:
         self.app_state = app_state
@@ -963,6 +1016,7 @@ def build_app(app_state: AppState) -> tornado.web.Application:
             (r"/api/v1/agents/([^/]+)/approve", AgentApproveHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/reject", AgentRejectHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/events", AgentEventsHandler, {"app_state": app_state}),
+            (r"/api/v1/agents/([^/]+)/artifacts", AgentArtifactsHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/prompt", AgentPromptHandler, {"app_state": app_state}),
             (r"/api/v1/agents/([^/]+)/interrupt", AgentInterruptHandler, {"app_state": app_state}),
             (r"/api/v1/topics", TopicCollectionHandler, {"app_state": app_state}),
@@ -982,6 +1036,7 @@ def build_app(app_state: AppState) -> tornado.web.Application:
             (r"/api/v1/topics/([^/]+)/final-artifacts", TopicFinalArtifactsHandler, {"app_state": app_state}),
             (r"/api/v1/files/([^/]+)", FileDownloadHandler, {"app_state": app_state}),
             (r"/api/v1/challenge-files/([^/]+)", ChallengeFileDownloadHandler, {"app_state": app_state}),
+            (r"/api/v1/agent-artifacts/([^/]+)", AgentArtifactDownloadHandler, {"app_state": app_state}),
             (r"/runtime/ws", RuntimeControlWebSocket, {"app_state": app_state}),
             (r"/ws", ConstellationWebSocket, {"app_state": app_state}),
         ],

@@ -190,6 +190,9 @@ def create_app(ui_settings: UISettings | None = None) -> Flask:
         runtimes = client.list_runtimes().get("runtimes", [])
         files = client.list_challenge_files(challenge["id"]).get("files", [])
         agents = client.list_agents(challenge["id"]).get("agents", [])
+        artifacts_by_agent: dict[str, list[dict[str, Any]]] = {}
+        for agent in agents:
+            artifacts_by_agent[agent["id"]] = client.list_agent_artifacts(agent["id"]).get("artifacts", [])
         events = client.challenge_events(challenge["id"], limit=200).get("events", [])
         return render_template(
             "challenge.html",
@@ -197,6 +200,7 @@ def create_app(ui_settings: UISettings | None = None) -> Flask:
             runtimes=runtimes,
             files=files,
             agents=agents,
+            artifacts_by_agent=artifacts_by_agent,
             events=events,
         )
 
@@ -300,6 +304,22 @@ def create_app(ui_settings: UISettings | None = None) -> Flask:
         except ConstellationAPIError as exc:
             flash(str(exc), "error")
         return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+    @app.get("/agent-artifacts/<file_id>")
+    @require_login
+    def download_agent_artifact(file_id: str) -> Any:
+        client = backend_client()
+        try:
+            response = client.download_agent_artifact(file_id)
+        except ConstellationAPIError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("index"))
+        headers: dict[str, str] = {}
+        if content_type := response.headers.get("Content-Type"):
+            headers["Content-Type"] = content_type
+        if content_disposition := response.headers.get("Content-Disposition"):
+            headers["Content-Disposition"] = content_disposition
+        return Response(response.iter_content(chunk_size=65536), headers=headers)
 
     @app.post("/topics")
     @require_login

@@ -278,6 +278,20 @@ erDiagram
         datetime finished_at
     }
 
+    AGENT_ARTIFACT {
+        objectId id PK
+        string agent_id FK
+        string challenge_id FK
+        string runtime_id FK
+        objectId file_id
+        string name
+        int size
+        string sha256
+        string artifact_type
+        string content_type
+        datetime created_at
+    }
+
     RUNTIME_COMMAND {
         objectId id PK
         string runtime_id FK
@@ -310,17 +324,28 @@ erDiagram
         object metadata
     }
 
+    GRIDFS_AGENT_ARTIFACT {
+        objectId file_id PK
+        string filename
+        int length
+        object metadata
+    }
+
     RUNTIME ||--o{ CHALLENGE : "assigned runtime_id"
     RUNTIME ||--o{ AGENT : "executes"
+    RUNTIME ||--o{ AGENT_ARTIFACT : "produces"
     RUNTIME ||--o{ RUNTIME_COMMAND : "consumes"
     RUNTIME ||--o{ AGENT_EVENT : "emits"
     CHALLENGE ||--o{ CHALLENGE_FILE : "has"
     CHALLENGE ||--o{ AGENT : "has"
+    CHALLENGE ||--o{ AGENT_ARTIFACT : "has"
     CHALLENGE ||--o{ RUNTIME_COMMAND : "queues"
     CHALLENGE ||--o{ AGENT_EVENT : "records"
+    AGENT ||--o{ AGENT_ARTIFACT : "uploads"
     AGENT ||--o{ RUNTIME_COMMAND : "target"
     AGENT ||--o{ AGENT_EVENT : "emits"
     CHALLENGE_FILE ||--|| GRIDFS_CHALLENGE_FILE : "file_id"
+    AGENT_ARTIFACT ||--|| GRIDFS_AGENT_ARTIFACT : "file_id"
 ```
 
 ### Collections And Indexes
@@ -337,6 +362,8 @@ erDiagram
 | `challenge_files` | `challenge_id, created_at desc` | File listing per challenge. |
 | `agents` | `challenge_id, created_at` | Ordered challenge agent list. |
 | `agents` | `runtime_id, status` | Runtime work/status filtering. |
+| `agent_artifacts` | `agent_id, created_at desc` | Artifact listing per agent. |
+| `agent_artifacts` | `challenge_id, created_at desc` | Artifact lookup per challenge. |
 | `runtime_commands` | `runtime_id, status, created_at` | Replay queued commands in FIFO order. |
 | `runtime_commands` | `agent_id, created_at` | Agent command history. |
 | `agent_events` | `challenge_id, created_at desc` | Challenge event feed. |
@@ -459,9 +486,12 @@ All endpoints below live under `/api/v1` and require a valid system bearer token
 | `POST` | `/agents/{id}/approve` | `AgentApproveHandler` | Move an approval-gated agent to `queued` and queue `spawn_agent`. |
 | `POST` | `/agents/{id}/reject` | `AgentRejectHandler` | Move an approval-gated agent to `rejected` and record the reason. |
 | `GET` | `/agents/{id}/events` | `AgentEventsHandler` | Read agent event history. |
+| `GET` | `/agents/{id}/artifacts` | `AgentArtifactsHandler` | List runtime-collected artifacts such as writeups for an agent. |
+| `POST` | `/agents/{id}/artifacts` | `AgentArtifactsHandler` | Upload agent artifacts into GridFS and record `agent_artifact` events. |
 | `POST` | `/agents/{id}/prompt` | `AgentPromptHandler` | Queue a follow-up prompt through `prompt_agent`. |
 | `POST` | `/agents/{id}/interrupt` | `AgentInterruptHandler` | Queue an `interrupt_agent` command. |
 | `GET` | `/challenge-files/{file_id}` | `ChallengeFileDownloadHandler` | Download one GridFS challenge file. |
+| `GET` | `/agent-artifacts/{file_id}` | `AgentArtifactDownloadHandler` | Download one GridFS agent artifact. |
 
 The older topic/session endpoints remain in the backend for compatibility with previous Constellation collaboration flows. The runtime-dashboard challenge/agent model is separate and does not require topic membership.
 
@@ -596,6 +626,11 @@ sequenceDiagram
     end
     Runtime->>Backend: agent_state completed(last_response)
     Backend->>Store: update_agent_state(...)
+    opt writeup.md or WRITEUP.md exists
+        Runtime->>Backend: POST /agents/{agent_id}/artifacts
+        Backend->>Store: store GridFS artifact and record agent_artifact
+        Runtime->>Backend: agent_event writeup_artifacts_uploaded
+    end
     Runtime->>Backend: command_status completed
 ```
 
@@ -703,10 +738,10 @@ sequenceDiagram
 | --- | --- |
 | `constellation/config.py` | Shared settings dataclasses and environment/config-file loading for clients, backend, UI, and runtime. |
 | `constellation/backend.py` | Tornado REST API, runtime websocket, app state, route table, auth enforcement. |
-| `constellation/storage.py` | MongoDB/GridFS repository, document shaping, indexes, challenge/agent/command/event state transitions. |
+| `constellation/storage.py` | MongoDB/GridFS repository, document shaping, indexes, challenge/agent/command/event/artifact state transitions. |
 | `constellation/client.py` | HTTP and websocket URL helper used by CLI shims, UI, runtime, and MCP tools. |
-| `constellation/runtime.py` | Host runtime service, websocket registration, command dispatch, workspace materialization, Codex SDK integration. |
-| `constellation/ui.py` | Flask dashboard routes that call the backend API and render runtime/challenge/agent views. |
+| `constellation/runtime.py` | Host runtime service, websocket registration, command dispatch, workspace materialization, Codex SDK integration, writeup artifact upload. |
+| `constellation/ui.py` | Flask dashboard routes that call the backend API and render runtime/challenge/agent/artifact views. |
 | `scripts/opencrow_runtime_shim.py` | Compatibility adapter for legacy terminal entrypoints. |
 | `scripts/opencrow-constellation-runtime` | Shell launcher for `python3 -m constellation.runtime` with repo `PYTHONPATH`. |
 | `scripts/opencrow-autosetup` | Thin shell shim that delegates to `opencrow_runtime_shim.py autosetup`. |
@@ -847,6 +882,7 @@ classDiagram
         +_run_codex_turn(...)
         +_materialize_files(files, workspace)
         +_extract_final_response(payload) str
+        +_upload_writeup_artifacts(agent_id, challenge_id, workspace)
     }
 
     class ConstellationManager {
@@ -875,6 +911,19 @@ classDiagram
     RuntimeControlWebSocket --> AppState
     ConstellationManager --> ConstellationAPIClient
 ```
+
+### Runtime Writeup Artifact Capture
+
+After a Codex turn completes, `RuntimeSocket._upload_writeup_artifacts()` scans the agent workspace for root or nested files named:
+
+- `writeup.md`
+- `WRITEUP.md`
+- `solution.md`
+- `SOLUTION.md`
+
+Matching files up to 2 MB are uploaded through `ConstellationAPIClient.upload_agent_artifacts()` with `artifact_type=writeup`. The backend stores each artifact in the `agent_artifacts` GridFS bucket, inserts metadata in the `agent_artifacts` collection, records one `agent_artifact` event per file, and the runtime emits a `writeup_artifacts_uploaded` event with the uploaded artifact list.
+
+The challenge UI reads `/api/v1/agents/{id}/artifacts` for every displayed agent and renders artifact download links. Browser downloads are proxied through the Flask UI route `/agent-artifacts/{file_id}` so the operator does not need to put the backend bearer token in a URL.
 
 ### Backend Handler Families
 

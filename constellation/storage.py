@@ -62,10 +62,12 @@ class ConstellationStorage:
         self.challenges: Collection = self.db["challenges"]
         self.challenge_files: Collection = self.db["challenge_files"]
         self.agents: Collection = self.db["agents"]
+        self.agent_artifacts: Collection = self.db["agent_artifacts"]
         self.runtime_commands: Collection = self.db["runtime_commands"]
         self.agent_events: Collection = self.db["agent_events"]
         self.bucket = GridFSBucket(self.db, bucket_name="final_artifacts_files")
         self.challenge_bucket = GridFSBucket(self.db, bucket_name="challenge_files")
+        self.agent_artifact_bucket = GridFSBucket(self.db, bucket_name="agent_artifacts")
 
     def ensure_indexes(self) -> None:
         self.topics.create_index([("slug", ASCENDING)], unique=True)
@@ -100,6 +102,8 @@ class ConstellationStorage:
         self.challenge_files.create_index([("challenge_id", ASCENDING), ("created_at", DESCENDING)])
         self.agents.create_index([("challenge_id", ASCENDING), ("created_at", ASCENDING)])
         self.agents.create_index([("runtime_id", ASCENDING), ("status", ASCENDING)])
+        self.agent_artifacts.create_index([("agent_id", ASCENDING), ("created_at", DESCENDING)])
+        self.agent_artifacts.create_index([("challenge_id", ASCENDING), ("created_at", DESCENDING)])
         self.runtime_commands.create_index([("runtime_id", ASCENDING), ("status", ASCENDING), ("created_at", ASCENDING)])
         self.runtime_commands.create_index([("agent_id", ASCENDING), ("created_at", ASCENDING)])
         self.agent_events.create_index([("challenge_id", ASCENDING), ("created_at", DESCENDING)])
@@ -556,6 +560,63 @@ class ConstellationStorage:
         cursor = self.agent_events.find(query).sort("created_at", DESCENDING).limit(max(1, min(limit, 500)))
         return [self._public_agent_event(doc) for doc in reversed(list(cursor))]
 
+    def add_agent_artifact(
+        self,
+        agent_id: str,
+        *,
+        filename: str,
+        data: bytes,
+        content_type: str | None = None,
+        artifact_type: str = "artifact",
+    ) -> dict[str, Any]:
+        agent = self.get_agent(agent_id)
+        if agent is None:
+            raise KeyError(agent_id)
+        safe_name = filename.strip().replace("\\", "/").split("/")[-1] or "artifact.bin"
+        guessed = content_type or mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
+        digest = hashlib.sha256(data).hexdigest()
+        file_id = self.agent_artifact_bucket.upload_from_stream(
+            safe_name,
+            data,
+            metadata={
+                "agent_id": agent["id"],
+                "challenge_id": agent["challenge_id"],
+                "runtime_id": agent.get("runtime_id"),
+                "content_type": guessed,
+                "sha256": digest,
+                "artifact_type": artifact_type,
+            },
+        )
+        doc = {
+            "agent_id": agent["id"],
+            "challenge_id": agent["challenge_id"],
+            "runtime_id": agent.get("runtime_id"),
+            "name": safe_name,
+            "file_id": file_id,
+            "size": len(data),
+            "sha256": digest,
+            "artifact_type": artifact_type,
+            "content_type": guessed,
+            "created_at": utc_now(),
+        }
+        result = self.agent_artifacts.insert_one(doc)
+        doc["_id"] = result.inserted_id
+        return self._public_agent_artifact(doc)
+
+    def list_agent_artifacts(self, agent_id: str) -> list[dict[str, Any]]:
+        return [
+            self._public_agent_artifact(doc)
+            for doc in self.agent_artifacts.find({"agent_id": agent_id}).sort("created_at", ASCENDING)
+        ]
+
+    def download_agent_artifact(self, file_id: str) -> tuple[bytes, dict[str, Any]]:
+        grid_out = self.agent_artifact_bucket.open_download_stream(ObjectId(file_id))
+        data = grid_out.read()
+        metadata = dict(grid_out.metadata or {})
+        metadata["filename"] = grid_out.filename
+        metadata["length"] = grid_out.length
+        return data, metadata
+
     def _public_topic(self, doc: dict[str, Any]) -> dict[str, Any]:
         topic_slug = str(doc["slug"])
         return {
@@ -682,8 +743,9 @@ class ConstellationStorage:
         }
 
     def _public_agent(self, doc: dict[str, Any]) -> dict[str, Any]:
+        agent_id = public_object_id(doc["_id"])
         return {
-            "id": public_object_id(doc["_id"]),
+            "id": agent_id,
             "challenge_id": doc["challenge_id"],
             "runtime_id": doc.get("runtime_id"),
             "role": doc.get("role", "worker"),
@@ -698,7 +760,23 @@ class ConstellationStorage:
             "updated_at": isoformat(doc.get("updated_at")),
             "started_at": isoformat(doc.get("started_at")),
             "finished_at": isoformat(doc.get("finished_at")),
+            "artifact_count": self.agent_artifacts.count_documents({"agent_id": agent_id}),
             "metadata": doc.get("metadata", {}),
+        }
+
+    def _public_agent_artifact(self, doc: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": public_object_id(doc["_id"]),
+            "agent_id": doc["agent_id"],
+            "challenge_id": doc["challenge_id"],
+            "runtime_id": doc.get("runtime_id"),
+            "name": doc["name"],
+            "file_id": public_object_id(doc["file_id"]),
+            "size": int(doc.get("size", 0)),
+            "sha256": doc.get("sha256"),
+            "artifact_type": doc.get("artifact_type", "artifact"),
+            "content_type": doc.get("content_type", "application/octet-stream"),
+            "created_at": isoformat(doc.get("created_at")),
         }
 
     def _public_runtime_command(self, doc: dict[str, Any]) -> dict[str, Any]:
